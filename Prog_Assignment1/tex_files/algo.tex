@@ -1,0 +1,121 @@
+\documentclass{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+
+\title{Sweep Line Algorithm for the Union Area of Axis-Aligned Rectangles}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\section*{Problem}
+
+Given $n$ axis-aligned rectangles where each rectangle $r$ is represented by
+
+\[
+(r.\text{min}_x, r.\text{max}_x, r.\text{min}_y, r.\text{max}_y)
+\]
+
+compute the total area covered by at least one rectangle.
+
+\section*{Idea}
+
+A vertical sweep line moves from left to right across the plane.  
+The $x$ coordinates where rectangles start or end divide the plane into vertical strips.  
+Within each strip the set of active rectangles does not change.
+
+For each strip we compute the total vertical coverage and multiply it by the strip width.
+
+\section*{Sweep Line Algorithm}
+
+\begin{algorithm}
+\caption{UnionArea(Rectangles)}
+\begin{algorithmic}[1]
+
+\State $events \gets \emptyset$
+
+\For{each rectangle $r$}
+    \State add $(r.min_x, START, r.min_y, r.max_y)$ to $events$
+    \State add $(r.max_x, END, r.min_y, r.max_y)$ to $events$
+\EndFor
+
+\State sort $events$ by $x$
+
+\State $activeIntervals \gets \emptyset$
+\State $previousX \gets events[0].x$
+\State $totalArea \gets 0$
+
+\For{each event $e$ in $events$}
+
+    \State $currentX \gets e.x$
+    \State $width \gets currentX - previousX$
+
+    \State $coveredY \gets ComputeUnionLength(activeIntervals)$
+
+    \State $totalArea \gets totalArea + width \times coveredY$
+
+    \If{$e.type = START$}
+        \State insert $(e.min_y, e.max_y)$ into $activeIntervals$
+    \Else
+        \State remove $(e.min_y, e.max_y)$ from $activeIntervals$
+    \EndIf
+
+    \State $previousX \gets currentX$
+
+\EndFor
+
+\State \Return $totalArea$
+
+\end{algorithmic}
+\end{algorithm}
+
+\section*{Subroutine}
+
+\begin{algorithm}
+\caption{ComputeUnionLength(intervals)}
+\begin{algorithmic}[1]
+
+\If{$intervals$ is empty}
+    \State \Return $0$
+\EndIf
+
+\State sort $intervals$ by start coordinate
+
+\State $total \gets 0$
+\State $(start,end) \gets intervals[0]$
+
+\For{each interval $(s,e)$ from the second onward}
+
+    \If{$s \le end$}
+        \State $end \gets \max(end,e)$
+    \Else
+        \State $total \gets total + (end - start)$
+        \State $start \gets s$
+        \State $end \gets e$
+    \EndIf
+
+\EndFor
+
+\State $total \gets total + (end - start)$
+
+\State \Return $total$
+
+\end{algorithmic}
+\end{algorithm}
+
+\section*{Complexity}
+
+\textbf{Event creation:} $O(n)$ since each rectangle generates two events.
+
+\textbf{Sorting events:} $O(n \log n)$ because the $2n$ events must be ordered by their $x$ coordinate.
+
+\textbf{Sweep processing:} $O(n \log n)$ since active intervals are updated and merged while scanning events.
+
+\textbf{Total time complexity:} $O(n \log n)$.
+
+\textbf{Space complexity:} $O(n)$ for storing events and active intervals.
+
+\end{document}

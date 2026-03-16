@@ -102,8 +102,29 @@ Procedure:
 
 ## Complexity
 
-Sorting events: O(n log n)
+### Time Complexity
 
-Processing events: O(n log n)
+Event creation: O(n)  
+Each rectangle contributes exactly two events (start and end), so building the event list requires linear time.
 
-Overall complexity: O(n log n)
+Sorting events: O(n log n)  
+There are 2n events and sorting them by x-coordinate dominates the running time.
+
+Processing sweep events: O(n log n)  
+For each event we update active intervals and recompute the union of y-intervals, which involves sorting or merging intervals whose total operations scale with the number of rectangles.
+
+Overall time complexity: O(n log n)  
+The sorting step dominates the algorithm, while all other operations are at most logarithmic or linear per event.
+
+---
+
+### Space Complexity
+
+Event storage: O(n)  
+We store two events per rectangle, so the event list size grows linearly with the number of rectangles.
+
+Active interval storage: O(n)  
+In the worst case all rectangles may overlap at the same x-position, requiring all y-intervals to be stored simultaneously.
+
+Overall space complexity: O(n)  
+Both the event list and the active interval set grow proportionally with the number of rectangles.
