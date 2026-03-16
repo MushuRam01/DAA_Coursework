@@ -1,0 +1,28 @@
+# Ignore compiled objects and binaries
+*.o
+*.obj
+*.out
+*.exe
+*.a
+*.so
+*.dll
+*.dylib
+*.lib
+*.pdb
+
+# Common bytecode / caches
+*.pyc
+*.pyo
+__pycache__/
+
+# Local binaries in this repo
+/intersection
+/Prog_Assignment1/intersection
+
+# Common build directories
+bin/
+build/
+dist/
+
+# Misc logs
+*.log

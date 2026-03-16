@@ -1,0 +1,124 @@
+\documentclass{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath, amssymb}
+
+\title{Correctness Proof of the Sweep Line Algorithm for the Union Area of Rectangles}
+\author{}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\section*{Problem Setting}
+
+Let $R = \{R_1, R_2, \dots, R_n\}$ be a set of axis-aligned rectangles in $\mathbb{R}^2$.  
+Each rectangle $R_i$ is defined by coordinates
+\[
+R_i = [x_i^{\min}, x_i^{\max}] \times [y_i^{\min}, y_i^{\max}]
+\]
+where $x_i^{\min} < x_i^{\max}$ and $y_i^{\min} < y_i^{\max}$.
+
+The goal is to compute the area of the union
+\[
+A = \text{area}\left(\bigcup_{i=1}^{n} R_i\right).
+\]
+
+The sweep line algorithm processes vertical rectangle boundaries from left to right and accumulates the area contributed by vertical strips.
+
+\section*{Definition (Event Coordinates)}
+
+Let
+\[
+X = \{x_i^{\min}, x_i^{\max} \mid 1 \le i \le n\}
+\]
+be the set of all rectangle boundary $x$-coordinates.
+
+Let
+\[
+x_1 < x_2 < \dots < x_k
+\]
+be the sorted sequence of distinct values in $X$.
+
+These coordinates partition the plane into vertical strips
+\[
+S_j = [x_j, x_{j+1}] \quad \text{for } j = 1,2,\dots,k-1.
+\]
+
+\section*{Lemma 1 (Coverage Invariance Within a Strip)}
+
+Within each strip $S_j$, the set of rectangles intersecting the strip is constant.
+
+\textbf{Proof.}
+
+Rectangles only begin or end at their vertical boundaries $x_i^{\min}$ or $x_i^{\max}$.  
+Since the strip $S_j$ contains no such boundary in its interior, no rectangle starts or stops intersecting the strip within it.
+
+Therefore, for every $x \in (x_j, x_{j+1})$, the set of rectangles intersecting the vertical line $x$ is identical.  
+\hfill $\square$
+
+\section*{Lemma 2 (Area of a Strip)}
+
+Let $Y_j$ denote the union of the $y$-intervals of rectangles intersecting strip $S_j$.
+
+Then the area contributed by the strip is
+\[
+\text{Area}(S_j) = (x_{j+1} - x_j)\cdot \text{length}(Y_j).
+\]
+
+\textbf{Proof.}
+
+Since the set of intersecting rectangles is constant throughout the strip, the set of $y$ values covered by rectangles is the same for every $x$ in the strip.
+
+Thus the covered region in the strip forms a Cartesian product of the strip width and the union of vertical intervals.
+
+Therefore the area equals the strip width multiplied by the total vertical coverage length.  
+\hfill $\square$
+
+\section*{Lemma 3 (Correct Computation of Vertical Coverage)}
+
+The interval merging procedure used in the algorithm correctly computes
+\[
+\text{length}\left(\bigcup_{i} [y_i^{\min}, y_i^{\max}]\right).
+\]
+
+\textbf{Proof.}
+
+The algorithm sorts the intervals by their starting coordinate and then merges overlapping intervals.  
+Whenever two intervals overlap, they are combined into a single interval whose length equals the union of the two.
+
+Because every interval is processed exactly once and overlaps are merged, each point in the union of intervals is counted exactly once.
+
+Therefore the algorithm computes the correct total covered length.  
+\hfill $\square$
+
+\section*{Theorem (Correctness of the Sweep Line Algorithm)}
+
+The sweep line algorithm computes the area
+\[
+A = \text{area}\left(\bigcup_{i=1}^{n} R_i\right).
+\]
+
+\textbf{Proof.}
+
+The event coordinates partition the plane into vertical strips $S_1, S_2, \dots, S_{k-1}$.
+
+By Lemma 1, the set of rectangles intersecting each strip is constant.
+
+By Lemma 2, the area contribution of each strip is
+\[
+(x_{j+1}-x_j)\cdot \text{length}(Y_j).
+\]
+
+By Lemma 3, the algorithm correctly computes the vertical coverage length $\text{length}(Y_j)$.
+
+Since the strips are disjoint and together cover the entire region where rectangles may appear, summing the contributions of all strips gives
+
+\[
+A = \sum_{j=1}^{k-1} (x_{j+1}-x_j)\cdot \text{length}(Y_j).
+\]
+
+Thus the algorithm exactly computes the union area of all rectangles.  
+\hfill $\square$
+
+\end{document}
