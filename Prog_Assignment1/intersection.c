@@ -65,8 +65,9 @@ int read_rectangles(const char *filename, Rectangle **rectangles_out, int *count
         return 1;
     }
 
-    Rectangle *rectangles = (Rectangle *)malloc((size_t)n * sizeof(Rectangle));
-    if (rectangles == NULL) {
+    Rectangle *rectangles = (Rectangle *)malloc((size_t)n * sizeof(Rectangle)); // alloc n rectangles
+    if (rectangles == NULL) {                                   //rectangles now points to the first element of that array.
+
         fclose(fp);
         return 1;
     }
@@ -120,7 +121,7 @@ int compute_union_length(Interval *intervals, int count) {
 
     int i = 1;
     while (i < count) {
-        int s = intervals[i].y1;
+        int s = intervals[i].y1; //start and end of y intervals
         int e = intervals[i].y2;
 
         if (s <= current_end) {
@@ -197,7 +198,8 @@ long long compute_union_area(Rectangle *rectangles, int n) {
                 active[active_count].y2 = events[i].y2;
                 active_count = active_count + 1;
             }
-        } else {
+        } 
+        else {
             /* END: remove interval */
             int j = 0;
             while (j < active_count) {
