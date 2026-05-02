@@ -1,0 +1,2639 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{listings}
+\usepackage{xcolor}
+\setlist{nosep}
+
+\lstset{
+    basicstyle=\ttfamily\small,
+    keywordstyle=\color{blue},
+    commentstyle=\color{gray},
+    stringstyle=\color{red},
+    breaklines=true,
+    showstringspaces=false
+}
+
+\title{CS 3210 Lecture Notes: Algorithm Design and Analysis}
+\author{Aarush Ram Anandh}
+\date{May 2, 2026}
+
+\begin{document}
+\maketitle
+\tableofcontents
+\newpage
+
+\section{Introduction: What is Algorithm Analysis?}
+
+\subsection*{Why Study Algorithms?}
+An algorithm is a step-by-step procedure to solve a computational problem. Algorithm analysis studies how efficiently algorithms use computational resources---primarily time (number of operations) and space (memory). We measure efficiency as a function of input size, typically denoted $n$.
+
+\subsection*{Asymptotic Notation}
+We use Big-O notation to describe algorithm complexity:
+\begin{itemize}
+\item $O(f(n))$: the algorithm runs in at most $f(n)$ time in the worst case.
+\item $\Omega(f(n))$: the algorithm takes at least $f(n)$ time.
+\item $\Theta(f(n))$: the algorithm takes exactly $f(n)$ time (both upper and lower bounds).
+\end{itemize}
+
+Example: Linear search takes $\Theta(n)$ time—we must examine up to $n$ elements in the worst case.
+
+\section{Lecture 1: Computational Models}
+
+\subsection*{The RAM Model}
+The Random Access Memory (RAM) model is the standard computational model in algorithm analysis. It assumes:
+\begin{enumerate}
+\item A processor can perform simple operations (arithmetic, logic, memory access) in constant time $O(1)$.
+\item Memory is randomly accessible—reading or writing any memory cell takes $O(1)$ time.
+\item All integers fit in a single machine word.
+\end{enumerate}
+
+The RAM model is useful for analyzing most algorithms. However, it has limitations when dealing with very large numbers.
+
+\subsection*{Why the Unit-Cost RAM Model Can Mislead}
+The RAM model treats all arithmetic operations as taking unit cost, regardless of operand size. This is unrealistic for large numbers. Consider:
+
+\begin{lstlisting}
+x = 2
+for i = 1 to n:
+    x = x * x
+\end{lstlisting}
+
+After iteration 1: $x = 4 = 2^2$
+After iteration 2: $x = 16 = 2^4$
+After iteration 3: $x = 256 = 2^8$
+After iteration $n$: $x = 2^{2^n}$
+
+Under the RAM model, this appears to take $O(n)$ time. But the actual value grows to astronomical sizes! For instance, $2^{2^{10}} \approx 10^{308}$—larger than the number of atoms in the universe.
+
+\subsection*{Bit Complexity}
+To measure complexity accurately when numbers grow large, we use \emph{bit complexity}: count the number of bit operations required.
+
+If an integer has $b$ bits, its value is at most $2^b$. In the loop above, after $n$ iterations:
+\[
+x = 2^{2^n} \quad \text{requires} \quad \lfloor \log_2(2^{2^n}) \rfloor + 1 = 2^n + 1 \text{ bits}
+\]
+
+The number of bits needed grows exponentially! Multiplying two $b$-bit numbers using grade-school multiplication costs $O(b^2)$ bit operations.
+
+Thus, the true complexity of the loop is:
+\[
+\text{Cost} = \sum_{i=0}^{n-1} O((2^i)^2) = \sum_{i=0}^{n-1} O(2^{2i}) = O(2^{2n})
+\]
+
+This is exponential, not linear!
+
+\subsection*{Key Lesson: Measure by Input Size}
+The critical principle: **time and space complexity must be measured as a function of the input size in bits**, not the value of numbers.
+
+For an algorithm to be considered efficient, its running time should be polynomial in the number of input bits. Algorithms with exponential bit complexity are generally impractical.
+
+\section{Lecture 2}
+
+\subsection*{Review: Unit-cost RAM vs. Bit Complexity}
+The unit-cost RAM model treats every arithmetic operation as $O(1)$, which can be misleading when numbers grow very large. We illustrated this with the squaring loop.
+
+\subsection*{Exponentiation by Squaring: A Concrete Example}
+
+\subsubsection*{Problem}
+Compute $x^n$ where $x$ is a real number and $n$ is a positive integer. This is crucial in cryptography, where we often need to compute $a^b \pmod{m}$ for very large values.
+
+\subsubsection*{Naive Approach}
+\begin{lstlisting}
+def naive_power(x, n):
+    result = 1
+    for i in range(n):
+        result = result * x
+    return result
+\end{lstlisting}
+
+This requires $n-1$ multiplications. If $x$ has $b$ bits, then $x^n$ has roughly $nb$ bits. Each multiplication of $b$-bit numbers costs $O(b^2)$ time, so the total time is:
+\[
+\text{Cost} = (n-1) \cdot O((nb)^2) = O(n^3 b^2)
+\]
+
+This is extremely slow for large $n$. For $n = 1000$ and $b = 64$, we perform 1000 multiplications of increasingly large numbers.
+
+\subsubsection*{Exponentiation by Squaring (Fast Exponentiation)}
+Key insight: use the binary representation of $n$.
+
+\begin{lstlisting}
+def fast_power(x, n):
+    if n == 0:
+        return 1
+    if n is even:
+        half = fast_power(x, n // 2)
+        return half * half
+    else:
+        return x * fast_power(x, n - 1)
+\end{lstlisting}
+
+The recurrence relation:
+\[
+x^n = \begin{cases}
+\left(x^{n/2}\right)^2, & n \text{ even} \\
+x \cdot x^{n-1}, & n \text{ odd}
+\end{cases}
+\]
+
+Alternatively, if $n = \sum_{i=0}^{k} b_i 2^i$ (binary representation), then:
+\[
+x^n = \prod_{i=0}^{k} x^{b_i 2^i} = \prod_{i: b_i = 1} x^{2^i}
+\]
+
+\subsubsection*{Analysis}
+The recursion depth is $O(\log n)$ because we halve $n$ at each step. Thus we perform only $O(\log n)$ multiplications. The total bit complexity is:
+\[
+O(\log n) \text{ multiplications of } O(nb) \text{ bits each} = O(\log n \cdot (nb)^2) = O(n^2 b^2 \log n)
+\]
+
+This is dramatically faster than $O(n^3 b^2)$ for large $n$. For $n=1000$, we reduce from $\sim 1000$ multiplications to $\sim 10$ multiplications.
+
+\subsubsection*{Example}
+To compute $2^{13}$:
+\begin{itemize}
+\item Binary: $13 = 1101_2 = 8 + 4 + 1$
+\item $2^1 = 2$
+\item $2^2 = 2^1 \cdot 2^1 = 4$
+\item $2^4 = 2^2 \cdot 2^2 = 16$
+\item $2^8 = 2^4 \cdot 2^4 = 256$
+\item $2^{13} = 2^8 \cdot 2^4 \cdot 2^1 = 256 \cdot 16 \cdot 2 = 8192$
+\end{itemize}
+
+Only 6 multiplications instead of 12!
+
+\subsection*{Example: Trial Division for Factoring}
+
+\subsubsection*{Problem}
+Given an integer $m$, determine if it is prime. If composite, find at least one factor.
+
+\subsubsection*{Algorithm}
+\begin{lstlisting}
+def trial_division(m):
+    for k in range(2, int(m**0.5) + 1):
+        if m % k == 0:
+            return k  # k is a factor
+    return None  # m is prime
+\end{lstlisting}
+
+\subsubsection*{Complexity Analysis}
+In the worst case (when $m$ is prime), we check all integers up to $\sqrt{m}$. This is $O(\sqrt{m})$ trial divisions.
+
+But what is the input size? If $m$ is represented as a binary string, it has $b = \log_2 m$ bits. Thus $m \le 2^b$ and $\sqrt{m} \le 2^{b/2}$.
+
+The number of divisions is $\Theta(2^{b/2})$, which is \emph{exponential in the input size}. This algorithm is impractical for large primes.
+
+For example:
+\begin{itemize}
+\item 64-bit integer: up to $2^{32} \approx 4$ billion trial divisions—feasible but slow.
+\item 128-bit integer: up to $2^{64}$ trial divisions—infeasible.
+\item 1024-bit integer (common in cryptography): up to $2^{512}$ trial divisions—impossible.
+\end{itemize}
+
+This demonstrates why simple algorithms fail for cryptographic operations and why more sophisticated factoring algorithms (Pollard's rho, quadratic sieve, etc.) are necessary.
+
+\subsection*{Unit-cost RAM vs. Bit Complexity (Revisited)}
+The unit-cost RAM model treats every arithmetic operation as $O(1)$, which can be misleading when
+numbers grow very large. Consider the loop below starting with $x=2$
+
+\begin{verbatim}
+for i = 1 to n:
+	x = x * x
+print x
+\end{verbatim}
+
+Each iteration squares $x$. By induction, after $n$ iterations,
+\[
+x = 2^{2^n}.
+\]
+In the unit-cost RAM model this appears to take $O(n)$ steps, but the value of $x$ quickly becomes
+astronomical, so arithmetic is no longer constant time.
+
+\subsection*{Bit length and size of numbers}
+If an integer is represented with $b$ bits, its magnitude is at most $2^b$. The number of bits in
+$2^{2^n}$ is
+\[
+\lfloor \log_2(2^{2^n}) \rfloor + 1 = 2^n + 1.
+\]
+Thus the intermediate values in the loop grow exponentially in $n$. The cost of multiplying two
+$b$-bit numbers using grade-school multiplication is $O(b^2)$ (or more generally some function
+$M(b)$ depending on the multiplication algorithm).
+
+\subsection*{Measuring time by input size}
+Time and space should be measured in terms of the input size, i.e., the number of input bits. The
+unit-cost RAM model does not reflect the true running time when arithmetic costs depend on operand
+size.
+
+\subsection*{Example: trial division for factoring}
+Given an integer $m$, the simplest factoring algorithm is:
+
+\begin{verbatim}
+for k = 2 to floor(sqrt(m)):
+	if k divides m:
+		report k as a factor
+if no factor found: m is prime
+\end{verbatim}
+
+This performs $O(\sqrt{m})$ divisibility tests. If $m$ has $b$ bits, then $m \le 2^b$ and
+\(\sqrt{m} \le 2^{b/2}\). Therefore the running time is exponential in the input size $b$.
+
+\subsection*{Exponentiation: recurrences and improved algorithms}
+To compute $x^n$ naively, multiply $x$ by itself $n$ times:
+\[
+x^n = \underbrace{x \cdot x \cdot \ldots \cdot x}_{n \text{ multiplications}}.
+\]
+If $x$ has $b$ bits, then $x^n$ has $O(nb)$ bits. A coarse upper bound is that each multiplication
+costs $O((nb)^2)$, and there are $n$ multiplications, giving $O(n^3 b^2)$ bit operations.
+
+Exponentiation by squaring uses a recurrence:
+\[
+x^n =
+\begin{cases}
+\left(x^{n/2}\right)^2, & n \text{ even}, \\
+x \cdot \left(x^{(n-1)/2}\right)^2, & n \text{ odd}.
+\end{cases}
+\]
+This reduces the number of multiplications to $O(\log n)$. The precise bit complexity depends on
+the multiplication routine, but the algorithm is asymptotically much faster than the straight-line
+method.
+
+\subsection*{Output-sensitive lower bounds: orthogonal segment intersections}
+Problem: given a set $S$ of orthogonal line segments, count or report all intersection points.
+The naive algorithm checks every pair of segments and tests for intersection, which takes
+$O(n^2)$ time for $n$ segments assuming a constant-time intersection test.
+
+If the output size is $h$ (the number of intersections), any reporting algorithm must take at least
+\(\Omega(n + h)\) time, because it must read the input and write the output. Here
+$0 \le h \le \Theta(n^2)$.
+
+\section{Lecture 3}
+
+\subsection*{Computational Geometry: Orthogonal Segment Intersections}
+
+\subsubsection*{Problem Statement}
+Given a set $S$ of $n$ orthogonal line segments (either horizontal or vertical), report or count all intersection points. An intersection occurs where a horizontal segment crosses a vertical segment.
+
+\subsubsection*{Naive Approach}
+Check all pairs of segments:
+\begin{lstlisting}
+intersections = []
+for each horizontal segment h:
+    for each vertical segment v:
+        if h and v intersect:
+            intersections.append((h, v))
+\end{lstlisting}
+
+If we have $n$ segments total, this is $O(n^2)$ intersection tests. Even if each test is $O(1)$, we have $O(n^2)$ total time.
+
+\subsubsection*{Why Naive is Not Optimal}
+The key observation: the number of intersections $h$ can be much smaller than $n^2$. If the segments are sparse, $h$ could be $O(n)$. An optimal algorithm should be output-sensitive, meaning its time depends on both $n$ and $h$.
+
+Lower bound: any algorithm must take at least $\Omega(n + h)$ time because:
+\begin{itemize}
+\item We must read all $n$ segments (at least $n$ time).
+\item We must write all $h$ intersection points (at least $h$ time).
+\end{itemize}
+
+The naive algorithm achieves $O(n^2)$ which can be much worse than $O(n + h)$ when $h$ is small.
+
+\subsection*{Sweep-Line Idea}
+
+Imagine a vertical line sweeping from left to right across the plane. At each point in time, this sweep line intersects some horizontal segments. The key insight:
+
+\textbf{A horizontal segment contributes its intersection to a vertical segment exactly when the sweep line reaches that vertical segment at the $x$-coordinate of intersection.}
+
+\subsubsection*{Event-Based Processing}
+Instead of checking all pairs, we process events in left-to-right order:
+
+\begin{enumerate}
+\item \textbf{Left endpoint of horizontal segment}: activate the segment (it now intersects the sweep line).
+\item \textbf{Right endpoint of horizontal segment}: deactivate the segment.
+\item \textbf{Vertical segment}: query which active horizontal segments intersect it.
+\end{enumerate}
+
+At any $x$-coordinate, let $S_x$ be the set of active (intersecting the sweep line) horizontal segments, sorted by $y$-coordinate.
+
+\subsubsection*{Data Structure: Balanced Binary Search Tree}
+Maintain $S_x$ in a balanced BST (AVL tree, Red-Black tree) keyed by $y$-coordinate. This supports:
+
+\begin{itemize}
+\item \textbf{Insert}$(y)$: Add a horizontal segment at $y$-coordinate. Time: $O(\log n)$.
+\item \textbf{Delete}$(y)$: Remove a horizontal segment. Time: $O(\log n)$.
+\item \textbf{Range Query}$(y_1, y_2)$: Find all segments with $y$-coordinates in $[y_1, y_2]$. Time: $O(\log n + \text{output})$.
+\end{itemize}
+
+The range query works by finding the first segment with $y \ge y_1$ using binary search, then walking through successors until $y > y_2$.
+
+\subsubsection*{Algorithm Pseudocode}
+\begin{lstlisting}
+sort all segment endpoints by x-coordinate
+intersections = []
+T = empty balanced BST  # keyed by y-coordinate
+
+for each event in left-to-right order:
+    if event is left endpoint of horizontal segment h:
+        T.insert(y-coordinate of h)
+    
+    else if event is right endpoint of horizontal segment h:
+        T.delete(y-coordinate of h)
+    
+    else if event is vertical segment v:
+        # v spans from y1 to y2
+        for each h in T with y in [y1, y2]:
+            intersections.append((h, v))
+
+return intersections
+\end{lstlisting}
+
+\subsubsection*{Complexity Analysis}
+\begin{itemize}
+\item Sorting: There are $2n$ segment endpoints (left and right of each horizontal segment, plus $n$ vertical segments). Sorting takes $O(n \log n)$.
+\item Event processing: 
+  \begin{itemize}
+  \item Each insert/delete costs $O(\log n)$. There are $2n$ of them, so $O(n \log n)$ total.
+  \item Each vertical segment query costs $O(\log n + h_v)$ where $h_v$ is the number of intersections for that vertical segment.
+  \item Summing over all vertical segments: $\sum_v O(\log n + h_v) = O(n \log n + h)$.
+  \end{itemize}
+\end{itemize}
+
+Total time: $O(n \log n) + O(n \log n + h) = O(n \log n + h)$
+
+This matches the output-sensitive lower bound up to logarithmic factors! When $h$ is small, this is much faster than $O(n^2)$.
+
+\subsection*{Orthogonal segment intersections via sweep line (Original)}
+We revisit the problem of counting or reporting intersections between horizontal and vertical
+line segments. The naive $O(n^2)$ approach checks every pair; the goal is an output-sensitive
+algorithm.
+
+\subsection*{Sweep-line idea (Original)}
+Imagine a vertical sweep line moving from left to right. At any $x$-coordinate, define $S_x$ as the
+set of horizontal segments that intersect the sweep line, sorted by their $y$-coordinates.
+
+Observation: $S_x$ changes only at endpoints of horizontal segments. Between consecutive event
+points, the sorted set is constant. With $n$ horizontal segments there are at most $2n$ distinct
+sets $S_1, S_2, \ldots, S_{2n}$.
+
+\subsection*{Event queue}
+Events are:
+\begin{enumerate}
+\item Left endpoint of a horizontal segment: insert it into $S_x$.
+\item Right endpoint of a horizontal segment: delete it from $S_x$.
+\item A vertical segment at $x = x_v$: query $S_x$ for all intersections.
+\end{enumerate}
+
+The event queue is the list of all such events sorted by $x$-coordinate.
+
+\subsection*{Data structure for $S_x$}
+Maintain $S_x$ in a balanced BST keyed by $y$ (AVL, red-black, etc.). This supports:
+\begin{itemize}
+\item Insert/Delete a horizontal segment: $O(\log n)$.
+\item Search for the first active segment with $y \ge y_1$: $O(\log n)$.
+\item Successor iteration to report all segments with $y \le y_2$.
+\end{itemize}
+
+\subsection*{Reporting intersections for a vertical segment}
+For a vertical segment spanning $y \in [y_1, y_2]$ at $x = x_v$:
+\begin{enumerate}
+\item Find the first active horizontal segment with $y \ge y_1$.
+\item Walk successors until $y > y_2$, reporting each intersection.
+\end{enumerate}
+If $h(v)$ intersections are reported for this vertical segment, the work is
+$O(\log n + h(v))$.
+
+\subsection*{Running time}
+There are at most $2n$ horizontal endpoints, so sorting the event queue takes $O(n \log n)$. During
+the sweep:
+\begin{itemize}
+\item Endpoint updates take $O(\log n)$ each, for $O(n \log n)$ total.
+\item Vertical segment queries cost $\sum_v O(\log n + h(v))$.
+\end{itemize}
+Overall:
+\[
+O(n \log n) + \sum_v O(\log n + h(v)) = O(n \log n + h),
+\]
+where $h$ is the total number of intersections. This matches the output-sensitive lower bound up
+to logarithmic factors.
+
+\subsection*{Note on non-orthogonal segments}
+The sweep-line framework extends to general segment intersections, but additional event types and
+geometric ordering are needed (and the algorithm becomes more complex).
+
+\section{Lecture 4: Sorting and Radix Algorithms}
+
+\subsection*{Comparison-Based Sorting: Lower Bound}
+
+Before discussing specific algorithms, it's important to understand the fundamental limits.
+
+\subsubsection*{Decision Tree Model}
+Any comparison-based sorting algorithm can be viewed as a decision tree:
+\begin{itemize}
+\item Each internal node represents a comparison (e.g., "is $a_i < a_j$?").
+\item Each leaf represents a final sorted order (permutation).
+\end{itemize}
+
+For $n$ distinct elements, there are $n!$ possible sorted orders. A binary decision tree with $L$ leaves has height at least $\lceil \log_2 L \rceil$. Therefore:
+\[
+\text{Minimum comparisons} \ge \log_2(n!) = \Theta(n \log n)
+\]
+
+Using Stirling's approximation: $\log_2(n!) \approx n \log_2 n - 1.44n$.
+
+\textbf{Conclusion}: No comparison-based sorting algorithm can beat $\Omega(n \log n)$ in the worst case. Mergesort and heapsort are asymptotically optimal for comparison sorting.
+
+\subsection*{Non-Comparison Sorting}
+
+For special cases where keys are restricted to a bounded range, we can sort faster than $O(n \log n)$ by avoiding comparisons.
+
+\subsection*{Counting Sort: Sorting a Small Range}
+
+\subsubsection*{Problem}
+Sort $n$ integers where each integer lies in the range $\{0, 1, \ldots, m-1\}$.
+
+\subsubsection*{Algorithm}
+\begin{lstlisting}
+def counting_sort(A, m):
+    # A is array of length n, values in [0, m-1]
+    count = [0] * m  # count[i] = number of elements equal to i
+    
+    # Count occurrences
+    for x in A:
+        count[x] += 1
+    
+    # Cumulative sum (count[i] = position of first element >= i)
+    cumsum = 0
+    for i in range(m):
+        temp = count[i]
+        count[i] = cumsum
+        cumsum += temp
+    
+    # Place elements in correct positions
+    result = [0] * len(A)
+    for x in A:
+        result[count[x]] = x
+        count[x] += 1
+    
+    return result
+\end{lstlisting}
+
+\subsubsection*{Example}
+Input: $A = [2, 0, 2, 1, 1, 0]$, $m = 3$
+
+Step 1: Count occurrences
+\begin{itemize}
+\item count = [2, 2, 2] (two 0's, two 1's, two 2's)
+\end{itemize}
+
+Step 2: Output sorted array by writing each element $i$ exactly $\text{count}[i]$ times
+\begin{itemize}
+\item Output: $[0, 0, 1, 1, 2, 2]$
+\end{itemize}
+
+\subsubsection*{Complexity}
+\begin{itemize}
+\item Counting: $O(n)$ to scan input.
+\item Iterating buckets: $O(m)$ to output.
+\item Total: $O(n + m)$
+\end{itemize}
+
+When $m = O(n)$, this is linear time—faster than comparison sorting!
+
+\subsubsection*{Stability}
+An algorithm is stable if equal elements maintain their relative order from the input. Counting sort can be made stable by processing elements in reverse order when placing them. Stability is crucial for radix sort.
+
+\subsection*{Radix Sort: Sorting Large Ranges}
+
+\subsubsection*{Problem}
+Sort $n$ integers in the range $\{0, 1, \ldots, B^k - 1\}$ where $B$ is a base (like 10 or $2^{16}$).
+
+\subsubsection*{Key Insight}
+View each number as a $k$-digit number in base $B$:
+\[
+\text{number} = d_{k-1} B^{k-1} + d_{k-2} B^{k-2} + \cdots + d_1 B + d_0
+\]
+
+where each $d_i \in \{0, 1, \ldots, B-1\}$.
+
+\subsubsection*{Algorithm}
+\begin{lstlisting}
+def radix_sort(A, k, B):
+    # A is array of n numbers, each a k-digit number in base B
+    
+    for digit_position in range(k):
+        # Stable sort by digit at this position
+        A = stable_sort_by_digit(A, digit_position, B)
+    
+    return A
+\end{lstlisting}
+
+where `stable_sort_by_digit` uses counting sort to sort by a single digit, using $O(n + B)$ time.
+
+\subsubsection*{Example: Sorting in decimal (B=10, k=3)}
+Input: $[329, 457, 657, 839, 436, 720, 355]$
+
+\begin{itemize}
+\item \textbf{Pass 1} (ones place):
+  
+  $[720, 329, 457, 436, 355, 657, 839]$
+  
+\item \textbf{Pass 2} (tens place):
+  
+  $[329, 436, 355, 457, 657, 720, 839]$
+  
+\item \textbf{Pass 3} (hundreds place):
+  
+  $[329, 355, 436, 457, 657, 720, 839]$ ✓
+\end{itemize}
+
+Why this works: After sorting by digit $i$, if two numbers differ in digit $j > i$, the one with the larger digit is correctly positioned. For numbers with the same digit at position $i$, the stable sort preserves their relative order from the previous pass.
+
+\subsubsection*{Complexity}
+Each of the $k$ passes takes $O(n + B)$ using counting sort. Total time:
+\[
+O(k(n + B))
+\]
+
+Choosing $B = \Theta(n)$ (e.g., $B = n$):
+\[
+O(k \cdot 2n) = O(kn)
+\]
+
+For numbers in $\{0, 1, \ldots, n^k - 1\}$, we have $k \log_B n^k = k$ digits in base $B$, so radix sort takes $O(kn)$ linear time.
+
+\subsubsection*{When to Use Radix Sort}
+\begin{itemize}
+\item Small values of $k$ relative to $n$.
+\item Integer keys (not strings or floating-point).
+\item Practical for sorting large datasets of integers.
+\end{itemize}
+
+\subsection*{Lexicographic Ordering of Strings}
+
+\subsubsection*{Problem}
+Sort $n$ strings lexicographically (dictionary order).
+
+\subsubsection*{Solution Using Radix Sort}
+Treat strings as base-$\Sigma$ numbers where $\Sigma$ is the alphabet size:
+\begin{enumerate}
+\item Pad all strings to equal length $L$ using a special "end-of-string" symbol $\$$ (smaller than any character).
+\item Apply radix sort from right to left (least significant to most significant).
+\end{enumerate}
+
+\subsubsection*{Example}
+Strings: ["cat", "car", "dog", "can"]
+
+Padded (length 3): "cat", "car", "dog", "can"
+
+Radix sort from right to left:
+\begin{itemize}
+\item Right column: a, a, g, a → sorted order by third character.
+\item Middle column: t, r, o, n → sorted order by second character (stable, preserves third).
+\item Left column: c, c, d, c → sorted order by first character (stable).
+\end{itemize}
+
+Result: ["can", "car", "cat", "dog"] ✓
+
+\subsubsection*{Complexity for Strings}
+If there are $n$ strings with total length $N = \sum_i \ell_i$ (where $\ell_i$ is the length of string $i$), and maximum length $L$:
+\[
+O(L(n + \Sigma))
+\]
+
+where $\Sigma$ is the alphabet size. This respects the true input size $N$, not $nL$, because we radix sort characters (each character is an input bit).
+
+\subsection*{Counting sort (bucket sort)
+Given $n$ integers in the range $\{0,1,\ldots,m-1\}$, we can sort them in $O(n+m)$ time:
+\begin{enumerate}
+\item Create a count array of size $m$ initialized to 0.
+\item Scan the input and increment the bucket count for each value.
+\item Scan the buckets in order to output the sorted sequence.
+\end{enumerate}
+This is fastest when $m = O(n)$.
+
+\subsection*{Stability}
+A sorting algorithm is \emph{stable} if equal keys appear in the output in the same order as in the
+input. Stability is essential for radix sort because earlier digit-ordering must be preserved.
+
+\subsection*{Radix sort}
+Radix sort performs a stable sort on each digit, from least significant to most significant.
+If numbers have $k$ digits in base $B$, the running time is $O(k(n + B))$ using counting sort per
+digit. Choosing $B = \Theta(n)$ gives $O(kn)$ time for values in $[0, n^k - 1]$.
+
+Hexadecimal digits are $0\text{--}15$ (written as $0,1,\ldots,9,\text{A},\ldots,\text{F}$), which
+is a common base for digit-based sorting examples.
+
+\subsection*{Lexicographic order of strings}
+Lexicographic order can be achieved by radix sorting characters from right to left, provided all
+strings have the same length. Introduce a special end symbol \(\$\) smaller than any character, and
+pad shorter strings with \(\$\) so equal-length comparison matches lexicographic order.
+
+If the string lengths are $\ell_1, \ldots, \ell_n$ with $\sum_i \ell_i = N$ and $\ell_i \le L$,
+the true input size is $N$ (not $nL$). Radix sorting characters respects this input-size view.
+
+\subsection*{Graphs: basic definitions}
+A graph $G=(V,E)$ has vertex set $V$ and edge set $E$. Graphs can be:
+\begin{itemize}
+\item \textbf{Directed:} edges are ordered pairs $(u,v)$.
+\item \textbf{Undirected:} edges are unordered.
+\end{itemize}
+For a weighted graph, a weight function maps edges to real numbers, $w:E \to \mathbb{R}$.
+
+\subsection*{Connectivity and traversal}
+An undirected graph is connected if every pair of vertices is connected by a path. Use DFS or BFS
+to test connectivity. With an adjacency list representation, both DFS and BFS run in
+$O(|V| + |E|) = O(n + m)$ time.
+
+\subsection*{Spanning trees and minimum spanning trees}
+A \emph{spanning tree} is a connected subgraph that spans all vertices with the minimum possible
+number of edges (a tree). In a weighted graph, the \emph{minimum spanning tree} (MST) is a spanning
+tree with minimum total weight.
+
+\section{Lecture 5: Maximal Points and Geometric Algorithms}
+
+\subsection*{Maximal Points Problem}
+
+\subsubsection*{Definition}
+Given a set of 2D points $S = \{(x_1, y_1), \ldots, (x_n, y_n)\}$, a point $p$ is \textbf{maximal} (or \textbf{Pareto optimal}) if no other point has both coordinates greater than or equal to $p$, with at least one strictly greater.
+
+Formally, $p = (x_p, y_p)$ is maximal if:
+\[
+\forall q \in S \setminus \{p\}: \quad x_q \le x_p \text{ or } y_q \le y_p
+\]
+
+Equivalently: $p$ is not dominated by any other point.
+
+\subsubsection*{Examples}
+Consider points: $(1,9), (2,7), (3,5), (4,4), (5,3)$
+
+\begin{itemize}
+\item $(1,9)$ is maximal (highest $y$).
+\item $(2,7)$ is not maximal (dominated by $(1,9)$).
+\item $(3,5)$ is not maximal (dominated by $(1,9)$).
+\item $(4,4)$ is not maximal (dominated by $(1,9)$).
+\item $(5,3)$ is maximal (furthest right).
+\end{itemize}
+
+Maximal points: $\{(1,9), (5,3)\}$.
+
+\subsubsection*{Properties of Maximal Points}
+\begin{enumerate}
+\item When sorted by $x$-coordinate in increasing order, the $y$-coordinates are in decreasing order (forms a "staircase").
+\item There are at most $n$ maximal points, often much fewer.
+\item The set of maximal points is unique.
+\end{enumerate}
+
+\subsubsection*{Naive Algorithm}
+\begin{lstlisting}
+maximal = []
+for each point p in S:
+    is_maximal = true
+    for each point q in S:
+        if q != p and q.x > p.x and q.y > p.y:
+            is_maximal = false
+            break
+    if is_maximal:
+        maximal.append(p)
+return maximal
+\end{lstlisting}
+
+Complexity: $O(n^2)$ — we check each of $n$ points against all $n$ others.
+
+\subsection*{Divide-and-Conquer Approach}
+
+\subsubsection*{Intuition}
+\begin{enumerate}
+\item Divide points into left and right halves (by median $x$-coordinate).
+\item Recursively find maximal points in each half.
+\item Merge the two sets.
+\end{enumerate}
+
+\subsubsection*{Key Insight for Merging}
+All points in the right half have $x$-coordinates at least as large as those in the left. Therefore:
+
+\textbf{Every maximal point in the right half remains maximal in the union.}
+
+A maximal point from the left survives merging only if its $y$-coordinate exceeds all maximal points on the right.
+
+\subsubsection*{Algorithm}
+\begin{lstlisting}
+def find_maximal(points):
+    if len(points) == 1:
+        return points
+    
+    # Divide by median x-coordinate
+    sorted_by_x = sort(points, key=lambda p: p.x)
+    mid = len(sorted_by_x) // 2
+    left = sorted_by_x[:mid]
+    right = sorted_by_x[mid:]
+    
+    # Conquer: recursively find maximal points
+    left_maximal = find_maximal(left)
+    right_maximal = find_maximal(right)
+    
+    # Merge: right maximal points are all maximal in the union
+    # For left maximal points, keep only those with y > max(y in right)
+    max_y_right = max(p.y for p in right_maximal)
+    
+    merged = right_maximal.copy()
+    for p in left_maximal:
+        if p.y > max_y_right:
+            merged.append(p)
+    
+    # Sort by decreasing x for next recursion (maintains staircase)
+    return sort(merged, key=lambda p: -p.x)
+\end{lstlisting}
+
+\subsubsection*{Merge Complexity}
+The merge step takes $O(n)$ time:
+\begin{itemize}
+\item Computing $\max y$ in right: $O(|right|)$
+\item Filtering left points: $O(|left|)$
+\item Total: $O(|left| + |right|) = O(n)$
+\end{itemize}
+
+Even better: since maximal points form a staircase, they're already sorted. We can merge in $O(|left| + |right|)$ time by walking pointers.
+
+\subsubsection*{Overall Complexity}
+\[
+T(n) = 2T(n/2) + O(n) = \Theta(n \log n)
+\]
+
+by the Master Theorem. This is optimal (requires sorting by $x$-coordinate anyway).
+
+\subsection*{Maximal points and dominance (Original text continues below)}
+Given a set of points $S = \{(x_i, y_i)\}_{i=1}^n$, a point $p \in S$ is \emph{maximal} if no other
+point is simultaneously to its upper-right. Formally:
+\[
+\forall q \in S \setminus \{p\},\quad x(q) < x(p)\ \text{or}\ y(q) < y(p).
+\]
+
+Define \emph{dominance}: point $p$ \emph{dominates} $q$ if
+\[
+x(p) > x(q)\ \text{and}\ y(p) > y(q).
+\]
+Then $p$ is maximal iff no point in $S$ dominates it. The two definitions are equivalent because
+"not dominated" is exactly the negation of the existence of a point with both coordinates larger.
+
+Maximal points form a \emph{staircase} (also called the Pareto frontier): when sorted by increasing
+$x$, their $y$-coordinates strictly decrease.
+
+\subsection*{Goal}
+Design an $O(n \log n)$ algorithm to find all maximal points.
+
+\subsection*{Naive algorithm}
+For each point, scan all others and check for a dominating point. This takes $O(n^2)$ time.
+
+\subsection*{Divide and conquer approach}
+\begin{enumerate}
+\item Divide $S$ into two sets of size $n/2$, typically by the median $x$-coordinate.
+\item Recursively compute maximal points in the left and right sets.
+\item Combine the two maximal sets in $O(n)$ time.
+\end{enumerate}
+
+\subsection*{Linear-time combine}
+Because all points in the right set have $x$-coordinates at least as large as those in the left,
+every maximal point in the right set remains maximal in the union. A maximal point from the left
+survives only if its $y$-coordinate is larger than every maximal point on the right.
+
+If the maximal points in each half are stored in decreasing $x$ order (the staircase order), we can
+merge by sweeping from right to left, maintaining the maximum $y$ seen in the right set and
+discarding left points with $y \le y_{\max}$. This takes linear time in the number of maximal points.
+
+\subsection*{Running time}
+The recurrence is
+\[
+T(n) = 2T(n/2) + O(n),
+\]
+which solves to $T(n) = O(n \log n)$.
+
+\section{Lecture 6: Divide-and-Conquer and Polynomial Multiplication}
+
+\subsection*{Divide-and-Conquer Paradigm}
+
+\subsubsection*{Template}
+\begin{enumerate}
+\item \textbf{Divide}: Split the input into $k$ independent subproblems (usually $k=2$).
+\item \textbf{Conquer}: Recursively solve each subproblem.
+\item \textbf{Combine}: Merge the solutions into the final answer.
+\end{enumerate}
+
+\subsubsection*{General Recurrence}
+\[
+T(n) = \sum_{i=1}^{k} T(n_i) + P(n) + M(n)
+\]
+
+where:
+\begin{itemize}
+\item $P(n)$ = partitioning cost
+\item $M(n)$ = merging/combination cost
+\item $\sum_i n_i = n$
+\end{itemize}
+
+\subsection*{Classic Example: Mergesort}
+
+\subsubsection*{Algorithm}
+\begin{lstlisting}
+def mergesort(A):
+    if len(A) <= 1:
+        return A
+    
+    mid = len(A) // 2
+    left = mergesort(A[:mid])
+    right = mergesort(A[mid:])
+    
+    return merge(left, right)
+
+def merge(L, R):
+    result = []
+    i = j = 0
+    while i < len(L) and j < len(R):
+        if L[i] <= R[j]:
+            result.append(L[i])
+            i += 1
+        else:
+            result.append(R[j])
+            j += 1
+    result.extend(L[i:])
+    result.extend(R[j:])
+    return result
+\end{lstlisting}
+
+\subsubsection*{Analysis}
+\begin{itemize}
+\item Dividing: $O(1)$
+\item Recursion: $2T(n/2)$
+\item Merging: $O(n)$
+\end{itemize}
+
+Recurrence: $T(n) = 2T(n/2) + O(n)$
+
+By the Master Theorem: $T(n) = \Theta(n \log n)$
+
+\subsection*{Fibonacci: Exponential Recurrence}
+
+\subsubsection*{Definition}
+\[
+F(n) = F(n-1) + F(n-2), \quad F(0) = 0, \quad F(1) = 1
+\]
+
+\subsubsection*{Naive Recursive Implementation}
+\begin{lstlisting}
+def fib_naive(n):
+    if n <= 1:
+        return n
+    return fib_naive(n-1) + fib_naive(n-2)
+\end{lstlisting}
+
+\subsubsection*{Problem}
+The recursion tree has exponential depth. The number of function calls is $\Theta(F(n))$, which is exponential!
+
+\[
+F(n) = \Theta(\phi^n), \quad \text{where} \quad \phi = \frac{1 + \sqrt{5}}{2} \approx 1.618 \text{ (golden ratio)}
+\]
+
+For $n=40$, this is $\sim 10^8$ calls. For $n=100$, it's infeasible.
+
+\subsubsection*{Fast Fibonacci via Matrix Exponentiation}
+
+Key insight: Express Fibonacci as matrix multiplication:
+\[
+\begin{bmatrix} F_n \\ F_{n-1} \end{bmatrix} = \begin{bmatrix} 1 & 1 \\ 1 & 0 \end{bmatrix} \begin{bmatrix} F_{n-1} \\ F_{n-2} \end{bmatrix}
+\]
+
+Therefore:
+\[
+\begin{bmatrix} F_n \\ F_{n-1} \end{bmatrix} = \begin{bmatrix} 1 & 1 \\ 1 & 0 \end{bmatrix}^{n-1} \begin{bmatrix} 1 \\ 0 \end{bmatrix}
+\]
+
+Using fast exponentiation (exponentiation by squaring), we compute $M^{n-1}$ in $O(\log n)$ matrix multiplications. Each $2 \times 2$ matrix multiplication takes $O(1)$ time, so:
+
+\[
+\text{Time} = O(\log n)
+\]
+
+\begin{lstlisting}
+def matrix_mult(A, B):
+    return [[A[0][0]*B[0][0] + A[0][1]*B[1][0],
+             A[0][0]*B[0][1] + A[0][1]*B[1][1]],
+            [A[1][0]*B[0][0] + A[1][1]*B[1][0],
+             A[1][0]*B[0][1] + A[1][1]*B[1][1]]]
+
+def matrix_pow(M, n):
+    if n == 1:
+        return M
+    if n % 2 == 0:
+        half = matrix_pow(M, n // 2)
+        return matrix_mult(half, half)
+    else:
+        return matrix_mult(M, matrix_pow(M, n - 1))
+
+def fib_fast(n):
+    M = [[1, 1], [1, 0]]
+    result = matrix_pow(M, n)
+    return result[0][1]  # Returns F_n
+\end{lstlisting}
+
+\subsubsection*{Comparison}
+\begin{itemize}
+\item Naive: $O(\phi^n)$ — exponential, infeasible for $n > 40$.
+\item Fast: $O(\log n)$ — logarithmic, feasible for $n = 10^{18}$.
+\end{itemize}
+
+\subsection*{Integer Multiplication: From Quadratic to Subquadratic}
+
+\subsubsection*{Problem}
+Multiply two $n$-bit integers $A$ and $B$.
+
+\subsubsection*{Grade-School Algorithm}
+\begin{lstlisting}
+def multiply_naive(A, B, n):
+    result = 0
+    for i in range(n):
+        result += (get_bit(A, i) * B) << i
+    return result
+\end{lstlisting}
+
+This performs $n$ shifts and $n$ additions of $n$-bit numbers, each taking $O(n)$ time. Total: $O(n^2)$.
+
+\subsubsection*{Karatsuba Algorithm}
+
+\textbf{Key Idea}: Reduce the number of multiplications.
+
+Split each $n$-bit number into high and low halves:
+\[
+A = A_1 \cdot 2^{n/2} + A_0, \quad B = B_1 \cdot 2^{n/2} + B_0
+\]
+
+Naive multiplication requires 4 sub-multiplications:
+\[
+AB = A_1 B_1 \cdot 2^n + (A_1 B_0 + A_0 B_1) \cdot 2^{n/2} + A_0 B_0
+\]
+
+Cost: $4 \times M(n/2)$ where $M(n/2)$ is the cost of multiplying $(n/2)$-bit numbers.
+
+\textbf{Karatsuba's Trick}: Compute only 3 multiplications:
+\[
+P = (A_1 + A_0)(B_1 + B_0)
+\]
+
+Then:
+\[
+A_1 B_0 + A_0 B_1 = P - A_1 B_1 - A_0 B_0
+\]
+
+So:
+\[
+AB = A_1 B_1 \cdot 2^n + (P - A_1 B_1 - A_0 B_0) \cdot 2^{n/2} + A_0 B_0
+\]
+
+Recurrence: $M(n) = 3M(n/2) + O(n)$
+
+By Master Theorem: $M(n) = O(n^{\log_2 3}) = O(n^{1.585})$
+
+\textbf{Improvement}: From $O(n^2)$ to $O(n^{1.585})$ — substantial for large $n$.
+
+\subsubsection*{Toom-Cook and Further Improvements}
+Generalizing to $k$-way splits reduces the exponent further. With large $k$ and FFT-based polynomial multiplication, we can achieve $O(n \log n)$ integer multiplication using Sch\"onhage-Strassen algorithm.
+
+\subsection*{Divide and conquer template (Original section continues)
+Generic strategy:
+\begin{enumerate}
+\item Divide the input into a fixed number of parts (usually 2).
+\item Recursively solve the subproblems (or solve directly when the size is below $n_0$).
+\item Combine (or ``patch up'') the sub-solutions.
+\end{enumerate}
+
+The running time can be written as
+\[
+T(n) = \sum_{i=1}^k T(n_i) + P(n) + M(n),
+\quad \text{with } \sum_i n_i = n,
+\]
+where $P(n)$ is the partition cost and $M(n)$ is the merge/combination cost.
+
+\subsection*{Classic example: mergesort}
+Mergesort splits into two halves and merges in linear time:
+\[
+T(n) = 2T(n/2) + O(n) \Rightarrow T(n) = O(n \log n).
+\]
+
+\subsection*{Recurrences that do not fit the Master Theorem}
+Some divide-and-conquer recurrences are not of the form $T(n)=aT(n/b)+f(n)$, e.g.
+\[
+T(n) = \sqrt{n}\,T(\sqrt{n}) + O(n^{3/2}\log^2 n),
+\]
+which motivates more general techniques (substitution, recursion trees, etc.).
+
+\subsection*{Fibonacci recurrence and growth}
+The Fibonacci sequence is
+\[
+F(n) = F(n-1) + F(n-2), \quad F(0)=0,\ F(1)=1.
+\]
+The naive recursive algorithm makes a number of calls proportional to $F(n)$, so its running time
+is exponential. The closed-form growth is
+\[
+F(n) = \Theta(\varphi^n), \quad \varphi = \frac{1+\sqrt{5}}{2},
+\]
+and $\log F(n) \approx n \log \varphi$.
+
+\subsection*{Matrix formulation of Fibonacci}
+Define
+\[
+\begin{bmatrix}F_n \\ F_{n-1}\end{bmatrix}
+=
+\begin{bmatrix}1 & 1 \\ 1 & 0\end{bmatrix}
+\begin{bmatrix}F_{n-1} \\ F_{n-2}\end{bmatrix}.
+\]
+Then
+\[
+\begin{bmatrix}F_n \\ F_{n-1}\end{bmatrix}
+=
+\begin{bmatrix}1 & 1 \\ 1 & 0\end{bmatrix}^{n-1}
+\begin{bmatrix}F_1 \\ F_0\end{bmatrix}.
+\]
+Using fast exponentiation, this yields $O(\log n)$ matrix multiplications, giving a much faster
+Fibonacci algorithm.
+
+\subsection*{Multiplying two $n$-bit integers}
+Let
+\[
+A = A_1 2^{n/2} + A_0, \quad B = B_1 2^{n/2} + B_0,
+\]
+where $A_1,A_0,B_1,B_0$ are $n/2$-bit numbers. Then
+\[
+AB = A_1B_1\,2^n + (A_1B_0 + A_0B_1)\,2^{n/2} + A_0B_0.
+\]
+The straightforward divide-and-conquer uses 4 multiplications of size $n/2$:
+\[
+M(n) = 4M(n/2) + O(n) \Rightarrow M(n) = O(n^2).
+\]
+
+\subsection*{Karatsuba's idea (3 multiplications)}
+Compute:
+\[
+P = (A_1 + A_0)(B_1 + B_0).
+\]
+Then
+\[
+A_1B_0 + A_0B_1 = P - A_1B_1 - A_0B_0.
+\]
+So we need only three multiplications of size $n/2$:
+\[
+T(n) = 3T(n/2) + O(n).
+\]
+This solves to
+\[
+T(n) = O\bigl(n^{\log_2 3}\bigr) \approx O(n^{1.585}).
+\]
+
+\subsection*{General $k$-way split (Toom-Cook viewpoint)}
+Split into $k$ blocks of size $n/k$ and write
+\[
+A(x) = A_{k-1}x^{k-1} + \cdots + A_1 x + A_0, \quad
+B(x) = B_{k-1}x^{k-1} + \cdots + B_1 x + B_0,
+\]
+with $x = 2^{n/k}$. Then $AB$ equals $C(x)$ where $C(x) = A(x)B(x)$ is a degree $2k-2$ polynomial.
+
+To obtain $C$, evaluate $A$ and $B$ at $2k-1$ distinct points, multiply pointwise, and interpolate.
+This yields the recurrence (for constant $k$):
+\[
+T(n) = (2k-1)T(n/k) + O(n).
+\]
+With larger constant $k$, the exponent approaches $1$, giving $O(n^{1+\varepsilon})$ time for any
+fixed $\varepsilon>0$.
+
+\subsection*{Polynomial interpolation reminder}
+A degree-$d$ polynomial is uniquely determined by its values at $d+1$ distinct points. For example,
+for degree 3:
+\[
+\begin{bmatrix}
+x_1^3 & x_1^2 & x_1 & 1 \\
+x_2^3 & x_2^2 & x_2 & 1 \\
+x_3^3 & x_3^2 & x_3 & 1 \\
+x_4^3 & x_4^2 & x_4 & 1
+\end{bmatrix}
+\begin{bmatrix}a_3\\a_2\\a_1\\a_0\end{bmatrix}
+=
+\begin{bmatrix}y_1\\y_2\\y_3\\y_4\end{bmatrix}.
+\]
+
+\subsection*{Toward $O(n \log n)$ multiplication}
+When $k$ grows with $n$ (e.g., $k \approx \sqrt{n}$) and evaluation/interpolation use roots of
+unity, FFT gives $O(n \log n)$ polynomial multiplication, leading to near-linear-time integer
+multiplication.
+
+\section{Lecture 7: Order Statistics and Selection}
+
+\subsection*{Selection Problem}
+
+\subsubsection*{Definition}
+Given a set $S = \{x_1, x_2, \ldots, x_n\}$ and an integer $k$ with $1 \le k \le n$, find the $k$-th smallest element (the element of \textbf{rank} $k$).
+
+\subsubsection*{Examples}
+$S = [3, 1, 4, 1, 5, 9, 2, 6]$ (after removing duplicates: $[1, 2, 3, 4, 5, 6, 9]$)
+\begin{itemize}
+\item $k=1$: minimum = 1
+\item $k=4$: median = 4
+\item $k=7$: maximum = 9
+\end{itemize}
+
+\subsubsection*{Why is Selection Important?}
+\begin{itemize}
+\item Computing medians (for statistics, algorithms like quicksort, data analysis).
+\item Finding $k$-nearest neighbors.
+\item Percentile calculations.
+\end{itemize}
+
+\subsection*{Simple Approaches}
+
+\subsubsection*{Sort and Pick}
+\begin{lstlisting}
+def select_by_sort(S, k):
+    sorted_S = sort(S)
+    return sorted_S[k-1]  # k-1 because 0-indexed
+\end{lstlisting}
+
+Time: $O(n \log n)$. This works but is overkill since we don't need the full sorted order.
+
+\subsubsection*{Min-Heap Extraction}
+\begin{lstlisting}
+def select_by_heap(S, k):
+    heap = build_min_heap(S)  # O(n)
+    for i in range(k-1):
+        extract_min(heap)      # O(log n) each
+    return extract_min(heap)
+\end{lstlisting}
+
+Time: $O(n + k \log n)$. Good when $k$ is small, but bad when $k$ is large (close to $n$).
+
+\subsection*{Partition-Based Selection (Linear Time on Average)}
+
+\subsubsection*{Quickselect: Randomized Version}
+The key insight: use partitioning (like in quicksort) to narrow down the search.
+
+\begin{lstlisting}
+def quickselect(S, k):
+    if len(S) == 1:
+        return S[0]
+    
+    # Pick random pivot
+    pivot_idx = random.randint(0, len(S)-1)
+    pivot = S[pivot_idx]
+    
+    # Partition: L < pivot, M = pivot, R > pivot
+    L = [x for x in S if x < pivot]
+    M = [x for x in S if x == pivot]
+    R = [x for x in S if x > pivot]
+    
+    # Recurse on correct part
+    if k <= len(L):
+        return quickselect(L, k)
+    elif k <= len(L) + len(M):
+        return pivot
+    else:
+        return quickselect(R, k - len(L) - len(M))
+\end{lstlisting}
+
+\subsubsection*{Analysis}
+Define a "good" pivot as one with rank $r$ where $n/4 \le r \le 3n/4$. 
+
+\textbf{Claim}: A random pivot is good with probability $\ge 1/2$.
+
+\textbf{Proof}: The good ranks are in the range $[n/4, 3n/4]$, which contains $n/2$ elements out of $n$ total. By symmetry, picking a random element gives probability $\ge 1/2$ of being good.
+
+\textbf{Recurrence}:
+If we always pick a good split, we recurse on at most $3n/4$ elements:
+\[
+T(n) \le T(3n/4) + O(n)
+\]
+
+This solves to $T(n) = O(n)$ (by the recursion tree method or Master Theorem).
+
+\textbf{With Randomization}:
+Let $N(n)$ be the expected number of elements examined. In iteration $i$, we have $E[\text{size}_i]$:
+\begin{itemize}
+\item With probability $1/2$, we pick a good pivot and get $\le 3n/4$ elements.
+\item With probability $1/2$, we pick a bad pivot and might get $\le n-1$ elements, but on average less.
+\end{itemize}
+
+The expected recurrence is:
+\[
+E[T(n)] \le E[T(3n/4)] + O(n) = O(n)
+\]
+
+\subsubsection*{Example}
+$S = [3, 1, 4, 1, 5, 9, 2, 6]$, find $k=4$:
+\begin{itemize}
+\item Pick pivot = 5 (rank 7). Too large, recurse on L = [3, 1, 4, 1, 2, 6] (the part $< 5$). But wait, this example shows we might not get a perfectly balanced split.
+\item Better example: pivot = 4 (rank 4). Exactly right! Return 4.
+\end{itemize}
+
+\subsection*{Deterministic Linear Time: Median of Medians}
+
+\subsubsection*{Why Deterministic?}
+Quickselect works well in expectation, but in the worst case (unlucky random choices), it still takes $O(n^2)$ time. For guaranteed linear time, we need a deterministic algorithm.
+
+\subsubsection*{Key Idea: Guaranteed Good Pivot}
+Find a pivot whose rank is guaranteed to be in a constant-fraction range, without relying on randomness.
+
+\subsubsection*{Algorithm: Median-of-Medians}
+\begin{lstlisting}
+def median_of_medians(S):
+    # Base case
+    if len(S) <= 5:
+        return sorted(S)[len(S) // 2]
+    
+    # Step 1: Partition S into groups of 5
+    groups = [S[i:i+5] for i in range(0, len(S), 5)]
+    
+    # Step 2: Find median of each group
+    medians = [sorted(group)[len(group)//2] for group in groups]
+    
+    # Step 3: Recursively find median of medians
+    mom = median_of_medians(medians)
+    
+    return mom
+
+def select_with_median_of_medians(S, k):
+    if len(S) == 1:
+        return S[0]
+    
+    # Find pivot using median-of-medians
+    pivot = median_of_medians(S)
+    
+    # Partition around pivot
+    L = [x for x in S if x < pivot]
+    M = [x for x in S if x == pivot]
+    R = [x for x in S if x > pivot]
+    
+    # Recurse
+    if k <= len(L):
+        return select_with_median_of_medians(L, k)
+    elif k <= len(L) + len(M):
+        return pivot
+    else:
+        return select_with_median_of_medians(R, k - len(L) - len(M))
+\end{lstlisting}
+
+\subsubsection*{Why the Guarantee Works}
+
+The median-of-medians has a special property: in a split of $n$ elements:
+\begin{itemize}
+\item At least $3n/10$ elements are $\ge$ median-of-medians.
+\item At least $3n/10$ elements are $\le$ median-of-medians.
+\end{itemize}
+
+\textbf{Proof sketch}: 
+\begin{enumerate}
+\item We have $\lceil n/5 \rceil$ groups.
+\item The median-of-medians is the median of $\lceil n/5 \rceil$ medians.
+\item Half of the $\lceil n/5 \rceil$ medians are $\ge$ the median-of-medians (roughly $n/10$ medians).
+\item Each such median has 2 elements $\ge$ it in its group, giving $\ge 2 \cdot n/10 = n/5$ elements.
+\item Additional elements: $\ge n/5 + n/10 = 3n/10$.
+\end{enumerate}
+
+Thus the recursion is:
+\[
+T(n) = T(\lceil n/5 \rceil) + T(7n/10) + O(n)
+\]
+
+\subsubsection*{Solving the Recurrence}
+By induction, we can show $T(n) \le cn$ for some constant $c$:
+
+Assume $T(m) \le cm$ for all $m < n$. Then:
+\[
+T(n) \le c \cdot \frac{n}{5} + c \cdot \frac{7n}{10} + O(n) = cn(\frac{1}{5} + \frac{7}{10}) + O(n) = cn \cdot \frac{9}{10} + O(n)
+\]
+
+Since $9/10 < 1$, this is $\le cn$ for sufficiently large $c$. Thus $T(n) = \Theta(n)$.
+
+\subsubsection*{Practical vs. Theoretical}
+\begin{itemize}
+\item \textbf{Theoretical}: Median-of-medians is optimal ($O(n)$ guaranteed).
+\item \textbf{Practical}: Quickselect with good random pivots is often faster in practice due to better constant factors.
+\item \textbf{Hybrid}: Use quickselect, but fall back to median-of-medians if too many iterations without a good pivot.
+\end{itemize}
+
+\subsection*{Selection (order statistics) (Original section continues)
+Problem: given a set $S=\{x_1,\ldots,x_n\}$ and an integer $k$ ($1 \le k \le n$), find the
+$k$-th smallest element. This is the element of \emph{rank} $k$ in the sorted order of $S$.
+
+\subsection*{Baseline methods}
+\begin{itemize}
+\item Sort and return the $k$-th element: $O(n \log n)$.
+\item Repeatedly extract the minimum $k$ times: $O(kn)$ (bad if $k$ is large).
+\end{itemize}
+The goal is a linear-time selection algorithm without fully sorting.
+
+\subsection*{Partition-based selection}
+Partition around a pivot $p$ (as in quicksort) and let $r$ be the rank of $p$:
+\begin{itemize}
+\item If $k=r$, return $p$.
+\item If $k<r$, recurse on the left partition.
+\item If $k>r$, recurse on the right partition with $k \leftarrow k-r$.
+\end{itemize}
+Each partition step costs $O(n)$.
+
+\subsection*{Randomized selection (expected linear time)}
+If the pivot is chosen uniformly at random, it is a \emph{good splitter} (rank between
+$n/4$ and $3n/4$) with probability $1/2$. Conditioning on a good split gives the recurrence
+\[
+T(n) \le n + T(3n/4).
+\]
+The number of trials before a good split is geometric with mean 2, so
+\[
+\mathbb{E}[T(n)] = O(n).
+\]
+Using Markov's inequality, $\Pr[T > \alpha c n] \le 1/\alpha$, giving a tail bound on runtime.
+
+\subsection*{Deterministic linear time: median of medians}
+Key idea: choose a pivot whose rank is guaranteed to be in a constant middle range.
+
+Algorithm outline:
+\begin{enumerate}
+\item Partition $S$ into groups of 5 and sort each group.
+\item Let $m_i$ be the median of each group; recursively find the median $M$ of the $m_i$'s.
+\item Use $M$ as the pivot and partition $S$ into $S_<, M, S_>$.
+\item Recurse into the side containing the $k$-th element.
+\end{enumerate}
+
+At least $3n/10$ elements are $\le M$ and at least $3n/10$ are $\ge M$, so the larger recursive
+subproblem has size at most $7n/10$. The recurrence is
+\[
+T(n) = T(n/5) + T(7n/10) + O(n) = O(n).
+\]
+
+\subsection*{Approximate median}
+An \emph{approximate median} is an element whose rank lies in $[\alpha n, (1-\alpha)n]$ for some
+constant $0<\alpha<1$. The median-of-medians algorithm guarantees such a pivot and thus linear time.
+
+\section{Lecture 8: Comparison-Based Sorting Lower Bounds}
+
+\subsection*{Comparison-Based Sorting Lower Bound (Detailed)}
+
+\subsubsection*{Decision Tree Model}
+Any comparison-based sorting algorithm can be modeled as a decision tree:
+\begin{itemize}
+\item Each internal node represents a binary comparison (e.g., "is $a_i < a_j$?").
+\item Each leaf represents a sorted permutation of the input.
+\item Path from root to leaf represents the sequence of comparisons made for a given input.
+\end{itemize}
+
+\subsubsection*{Fundamental Result}
+For $n$ distinct elements, there are $n!$ possible orderings. Since a decision tree must distinguish between all $n!$ orderings, it must have at least $n!$ leaves.
+
+A binary tree with $L$ leaves has height $\ge \lceil \log_2 L \rceil$. Therefore:
+\[
+\text{Worst-case comparisons} \ge \log_2(n!) = \Theta(n \log n)
+\]
+
+Using Stirling's approximation: $\log_2(n!) \approx n \log_2 n - 1.44n$.
+
+\textbf{Corollary}: No comparison-based sorting algorithm can achieve better than $\Theta(n \log n)$ worst-case time.
+
+\subsubsection*{Why Mergesort and Heapsort are Optimal}
+Both algorithms sort $n$ elements using $O(n \log n)$ comparisons in the worst case, matching the lower bound.
+
+\subsection*{Average-Case Lower Bound}
+The average-case analysis also gives $\Omega(n \log n)$:
+\[
+\text{Average comparisons} = \sum_{\text{leaves}} \text{depth}(\text{leaf}) \cdot \text{prob}(\text{leaf}) \ge \log_2(n!)
+\]
+
+This holds for any probability distribution of inputs.
+
+\section{Lecture 9 & 10: Heaps and Priority Queues}
+
+\subsection*{Binary Heaps: Overview}
+
+A binary heap is a complete binary tree that satisfies the heap property. For a \textbf{min-heap}:
+\[
+\text{key}(\text{parent}) \le \text{key}(\text{child})
+\]
+
+\subsubsection*{Array Representation}
+Store the heap in an array where:
+\begin{itemize}
+\item Node at index $i$ has left child at $2i+1$, right child at $2i+2$, parent at $\lfloor (i-1)/2 \rfloor$.
+\item The tree is a complete binary tree (all levels full except possibly the last).
+\end{itemize}
+
+\subsubsection*{Operations}
+
+\paragraph{Build Heap}
+\begin{lstlisting}
+def build_min_heap(A):
+    n = len(A)
+    for i in range(n // 2, -1, -1):
+        min_heapify(A, i)
+
+def min_heapify(A, i):
+    # Enforce min-heap property at node i
+    n = len(A)
+    smallest = i
+    left = 2 * i + 1
+    right = 2 * i + 2
+    
+    if left < n and A[left] < A[smallest]:
+        smallest = left
+    if right < n and A[right] < A[smallest]:
+        smallest = right
+    
+    if smallest != i:
+        A[i], A[smallest] = A[smallest], A[i]
+        min_heapify(A, smallest)
+\end{lstlisting}
+
+Analysis: $O(n)$ time. Counter-intuitive: although we call `min_heapify` for $n/2$ nodes, most calls are on leaf nodes which cost $O(1)$.
+
+\paragraph{Extract Min}
+\begin{lstlisting}
+def extract_min(heap):
+    if len(heap) == 0:
+        raise Error("Heap is empty")
+    min_val = heap[0]
+    heap[0] = heap[-1]
+    heap.pop()
+    min_heapify(heap, 0)
+    return min_val
+\end{lstlisting}
+
+Analysis: $O(\log n)$ time due to the heapify operation.
+
+\paragraph{Insert}
+\begin{lstlisting}
+def insert(heap, key):
+    heap.append(key)
+    i = len(heap) - 1
+    # Bubble up
+    while i > 0 and heap[(i-1)//2] > heap[i]:
+        heap[i], heap[(i-1)//2] = heap[(i-1)//2], heap[i]
+        i = (i - 1) // 2
+\end{lstlisting}
+
+Analysis: $O(\log n)$ time; path from leaf to root has length $\le \log n$.
+
+\subsection*{Heapsort}
+
+\begin{lstlisting}
+def heapsort(A):
+    build_min_heap(A)
+    result = []
+    while A:
+        result.append(extract_min(A))
+    return result
+\end{lstlisting}
+
+Complexity: $O(n \log n)$ — optimal for comparison-based sorting.
+
+\subsection*{Binomial Heaps}
+
+\subsubsection*{Binomial Trees}
+A \textbf{binomial tree} $B_i$ is defined recursively:
+\begin{itemize}
+\item $B_0$ is a single node.
+\item $B_i$ is formed by linking two $B_{i-1}$ trees (making one root a child of the other).
+\end{itemize}
+
+\textbf{Properties of $B_i$}:
+\begin{itemize}
+\item Number of nodes: $2^i$
+\item Height: $i$
+\item Root degree: $i$
+\item Number of nodes at depth $j$: $\binom{i}{j}$
+\end{itemize}
+
+\subsubsection*{Binomial Heap Structure}
+A binomial heap is a collection of binomial trees satisfying the heap property. For a heap with $n$ elements, we have at most $\lfloor \log_2 n \rfloor + 1$ trees (one for each bit in the binary representation of $n$).
+
+\textbf{Key Insight}: If $n = 13 = 1101_2$, we have trees $B_3, B_2, B_0$ (representing $8 + 4 + 1$).
+
+\subsubsection*{Operations}
+
+\paragraph{Merge}
+Merge two binomial heaps by linking trees of the same order (like binary addition with carries):
+
+\begin{lstlisting}
+def merge_binomial_heaps(H1, H2):
+    trees = {}
+    
+    # Collect all trees from both heaps
+    for tree in H1 + H2:
+        order = tree.order
+        while order in trees:
+            # Link two trees of the same order
+            tree = link(tree, trees[order])
+            order += 1
+        trees[order] = tree
+    
+    return BinomialHeap(sorted(trees.values(), key=lambda t: t.order))
+\end{lstlisting}
+
+Time: $O(\log n)$ since we process at most $\log n$ orders.
+
+\paragraph{Extract Min}
+\begin{enumerate}
+\item Find the tree with minimum root.
+\item Remove that tree's root.
+\item Merge the children (which form a binomial heap) with the remaining trees.
+\end{enumerate}
+
+Time: $O(\log n)$.
+
+\paragraph{Insert}
+Create a single-node tree and merge it with the existing heap.
+
+Time: $O(\log n)$ worst case, $O(1)$ amortized (analyzed later).
+
+\section{Lecture 11 & 12: Amortized Analysis}
+
+\subsection*{Amortized Analysis: Accounting Method}
+
+Instead of analyzing each operation individually, we account for groups of operations.
+
+\subsubsection*{Example: Binary Counter}
+Consider a counter with $n$ bits. Each increment flips some trailing 1s to 0s and flips one 0 to 1.
+
+\textbf{Naive worst-case}: If all $n$ bits are 1, incrementing flips all $n$ bits, costing $O(n)$.
+
+\textbf{Amortized analysis}: Over $2^n$ increments from 0 to $2^n - 1$:
+\begin{itemize}
+\item Bit 0 flips $2^n$ times (every increment).
+\item Bit 1 flips $2^{n-1}$ times (every 2 increments).
+\item Bit $i$ flips $2^{n-i}$ times.
+\end{itemize}
+
+Total flips: $\sum_{i=0}^{n-1} 2^{n-i} = 2^n + 2^{n-1} + \cdots + 2 = 2^{n+1} - 2 < 2^{n+1}$.
+
+Amortized cost per increment: $(2^{n+1}) / 2^n = 2 = O(1)$.
+
+\subsection*{Potential Method}
+
+Assign a potential function $\Phi$ to each data structure state. The amortized cost is:
+\[
+\hat{c}_i = c_i + (\Phi_i - \Phi_{i-1})
+\]
+
+where $c_i$ is the actual cost of operation $i$.
+
+\subsubsection*{Example: Binomial Heap Insertion}
+Let $\Phi$ = number of trees in the heap. Inserting a new node:
+\begin{itemize}
+\item Creates a new single-node tree: cost $O(1)$, $\Delta\Phi = +1$.
+\item Merging links trees of the same order, reducing the number of trees.
+\end{itemize}
+
+In the best case, the new tree immediately merges with an existing tree, reducing the count. The amortized cost remains $O(1)$.
+
+\section{Lecture 13: Minimum Spanning Trees}
+
+\subsection*{MST Problem}
+
+\subsubsection*{Definition}
+Given a connected, undirected, weighted graph $G = (V, E, w)$, find a spanning tree with minimum total edge weight.
+
+A \textbf{spanning tree} is a tree connecting all $|V|$ vertices using exactly $|V| - 1$ edges.
+
+\subsubsection*{Properties}
+\begin{itemize}
+\item Every connected graph has a spanning tree.
+\item There can be multiple MSTs if edges have equal weights.
+\item The MST is unique if all edge weights are distinct.
+\end{itemize}
+
+\subsubsection*{Greedy Property (Cut Property)}
+\textbf{Lemma}: Let $S \subset V$ and $(u, v)$ be the minimum-weight edge crossing the cut $(S, V \setminus S)$. Then $(u, v)$ is in some MST.
+
+\textbf{Proof}: If an MST $T$ doesn't contain $(u, v)$, adding it creates a cycle. Removing any other edge in that cycle from $S$ to $V \setminus S$ (call it $(u', v')$) gives a spanning tree with total weight $\le w(T)$ (since $w(u,v) \le w(u',v')$).
+
+\subsection*{Kruskal's Algorithm}
+
+Sort edges by weight and greedily add edges that don't create a cycle:
+
+\begin{lstlisting}
+def kruskal(G):
+    edges = sorted(G.edges, key=lambda e: e.weight)
+    uf = UnionFind(G.vertices)
+    mst = []
+    
+    for (u, v, w) in edges:
+        if uf.find(u) != uf.find(v):
+            uf.union(u, v)
+            mst.append((u, v, w))
+    
+    return mst
+\end{lstlisting}
+
+\textbf{Complexity}:
+\begin{itemize}
+\item Sorting: $O(m \log m)$ where $m = |E|$.
+\item Union-find operations: $O((m + n) \alpha(n))$ where $\alpha$ is the inverse Ackermann function (nearly constant).
+\end{itemize}
+
+Total: $O(m \log m)$.
+
+\subsection*{Prim's Algorithm}
+
+Grow the MST by repeatedly adding the minimum-weight edge from the current tree to a new vertex:
+
+\begin{lstlisting}
+def prim(G, start):
+    mst = {start}
+    edges = [(w, start, v) for v in G.neighbors(start) 
+             for w in [G.weight(start, v)]]
+    heapq.heapify(edges)
+    mst_edges = []
+    
+    while mst != G.vertices:
+        w, u, v = heapq.heappop(edges)
+        if v not in mst:
+            mst.add(v)
+            mst_edges.append((u, v, w))
+            for x in G.neighbors(v):
+                if x not in mst:
+                    heapq.heappush(edges, (G.weight(v, x), v, x))
+    
+    return mst_edges
+\end{lstlisting}
+
+\textbf{Complexity}: $O((m + n) \log n)$ with a binary heap, $O(n^2)$ with a Fibonacci heap.
+
+\section{Lecture 14, 15, 16: Greedy Algorithms and Matroids}
+
+\subsection*{0-1 Knapsack Problem}
+
+\subsubsection*{Problem Statement}
+Given:
+\begin{itemize}
+\item Capacity $B$ (weight limit).
+\item $n$ items, each with weight $w_i$ and profit $p_i$.
+\end{itemize}
+
+Maximize: $\sum_i p_i x_i$ subject to $\sum_i w_i x_i \le B$ and $x_i \in \{0, 1\}$.
+
+\subsubsection*{Why Greedy Fails}
+Greedy by profit-to-weight ratio $p_i / w_i$ doesn't always work:
+
+\textbf{Example}:
+\begin{itemize}
+\item Item 1: $w_1 = 6, p_1 = 30$, ratio = 5
+\item Item 2: $w_2 = 3, p_2 = 14$, ratio = 4.67
+\item Item 3: $w_3 = 4, p_3 = 16$, ratio = 4
+\item Capacity $B = 7$
+\end{itemize}
+
+\begin{itemize}
+\item Greedy: Take item 1 (profit 30, weight 6). Remaining capacity 1; can't take anything else. Total = 30.
+\item Optimal: Take items 2 and 3 (profit 14 + 16 = 30, weight 3 + 4 = 7). Total = 30.
+\end{itemize}
+
+In this case greedy ties optimal, but consider if item 3 had profit 18 instead:
+\begin{itemize}
+\item Greedy: 30
+\item Optimal: 14 + 18 = 32
+\end{itemize}
+
+Greedy fails!
+
+\subsection*{Dynamic Programming Solution}
+
+\subsubsection*{Recurrence}
+Let $K(i, j)$ = maximum profit using items $1 \ldots i$ with capacity $j$.
+
+\[
+K(i, j) = \begin{cases}
+K(i-1, j) & \text{if } w_i > j \\
+\max\{K(i-1, j), p_i + K(i-1, j-w_i)\} & \text{if } w_i \le j
+\end{cases}
+\]
+
+Base case: $K(0, j) = 0$ for all $j$.
+
+\subsubsection*{Algorithm}
+\begin{lstlisting}
+def knapsack(w, p, B):
+    n = len(w)
+    K = [[0] * (B + 1) for _ in range(n + 1)]
+    
+    for i in range(1, n + 1):
+        for j in range(B + 1):
+            K[i][j] = K[i-1][j]  # Don't take item i
+            if w[i-1] <= j:
+                K[i][j] = max(K[i][j], p[i-1] + K[i-1][j - w[i-1]])
+    
+    return K[n][B]
+\end{lstlisting}
+
+\textbf{Complexity}: $O(nB)$ time, $O(nB)$ space (can be reduced to $O(B)$ with careful implementation).
+
+\subsection*{When Greedy Works: Matroids}
+
+\subsubsection*{Definition}
+A matroid $M = (S, \mathcal{I})$ consists of a finite set $S$ and a family $\mathcal{I}$ of subsets satisfying:
+
+\begin{enumerate}
+\item \textbf{Heredity}: If $A \in \mathcal{I}$ and $B \subseteq A$, then $B \in \mathcal{I}$.
+\item \textbf{Exchange property}: If $|A| < |B|$ with $A, B \in \mathcal{I}$, then $\exists e \in B \setminus A$ such that $A \cup \{e\} \in \mathcal{I}$.
+\end{enumerate}
+
+The exchange property guarantees that all maximal feasible sets have the same size (the \textbf{rank} of the matroid).
+
+\subsubsection*{Greedy Algorithm for Matroids}
+
+\begin{lstlisting}
+def greedy_matroid(M, weights):
+    elements = sorted(M.ground_set, key=lambda e: -weights[e])
+    solution = []
+    for e in elements:
+        if can_add(solution, e, M):
+            solution.append(e)
+    return solution
+\end{lstlisting}
+
+\textbf{Theorem}: For any matroid, the greedy algorithm produces a maximum-weight feasible set.
+
+\subsubsection*{Example: Graphic Matroid (MST)}
+The graphic matroid of graph $G$ has:
+\begin{itemize}
+\item $S = E$ (edge set)
+\item $\mathcal{I}$ = all forests (acyclic edge sets)
+\end{itemize}
+
+This satisfies the matroid axioms. Greedy on forests with maximum weights gives the maximum spanning forest (MST if connected).
+
+\section{Lecture 17, 18: Shortest Paths}
+
+\subsection*{Single-Source Shortest Paths}
+
+\subsubsection*{Problem}
+Given a directed graph $G = (V, E, w)$ with weights $w: E \to \mathbb{R}$ and a source $s$, compute $d(v)$ = shortest path distance from $s$ to every vertex $v$.
+
+\subsubsection*{Constraints}
+\begin{itemize}
+\item \textbf{No negative cycles}: If negative cycles exist, shortest paths may not be defined.
+\item \textbf{Paths are directed}: $(u, v)$ may have different weight than $(v, u)$ or may not exist.
+\end{itemize}
+
+\subsection*{Bellman-Ford Algorithm}
+
+Works with negative weights and detects negative cycles.
+
+\begin{lstlisting}
+def bellman_ford(G, s):
+    d = {v: float('inf') for v in G.vertices}
+    d[s] = 0
+    
+    # Relax all edges n-1 times
+    for _ in range(len(G.vertices) - 1):
+        for (u, v, w) in G.edges:
+            if d[u] + w < d[v]:
+                d[v] = d[u] + w
+    
+    # Check for negative cycles
+    for (u, v, w) in G.edges:
+        if d[u] + w < d[v]:
+            return "Negative cycle detected"
+    
+    return d
+\end{lstlisting}
+
+\textbf{Complexity}: $O(|V| \cdot |E|) = O(nm)$.
+
+\textbf{Why it works}: After $i$ iterations, $d(v)$ contains the shortest path distance from $s$ to $v$ using at most $i$ edges. Since shortest paths have at most $n-1$ edges, $n-1$ iterations suffice.
+
+\subsection*{Dijkstra's Algorithm}
+
+For non-negative edge weights only. Uses a greedy approach with a priority queue.
+
+\begin{lstlisting}
+def dijkstra(G, s):
+    d = {v: float('inf') for v in G.vertices}
+    d[s] = 0
+    pq = [(0, s)]  # (distance, vertex)
+    visited = set()
+    
+    while pq:
+        dist, u = heapq.heappop(pq)
+        if u in visited:
+            continue
+        visited.add(u)
+        
+        for v, w in G.neighbors_with_weights(u):
+            if d[u] + w < d[v]:
+                d[v] = d[u] + w
+                heapq.heappush(pq, (d[v], v))
+    
+    return d
+\end{lstlisting}
+
+\textbf{Complexity}: $O((|V| + |E|) \log |V|)$ with a binary heap.
+
+\textbf{Why non-negative weights are required}: Once we pop a vertex from the priority queue, its distance is final. This is only guaranteed if we can't find a shorter path later (impossible with non-negative weights).
+
+\subsection*{Floyd-Warshall: All-Pairs Shortest Paths}
+
+\subsubsection*{Dynamic Programming Approach}
+Let $D^k_{ij}$ = shortest path from $i$ to $j$ using only intermediate vertices in $\{1, 2, \ldots, k\}$.
+
+\[
+D^k_{ij} = \min\{D^{k-1}_{ij}, D^{k-1}_{ik} + D^{k-1}_{kj}\}
+\]
+
+Base case: $D^0_{ij} = w(i,j)$ (direct edge weight or $\infty$ if no edge).
+
+\begin{lstlisting}
+def floyd_warshall(G):
+    n = len(G.vertices)
+    D = [[float('inf')] * n for _ in range(n)]
+    
+    # Initialize
+    for i in range(n):
+        D[i][i] = 0
+    for (u, v, w) in G.edges:
+        D[u][v] = w
+    
+    # DP
+    for k in range(n):
+        for i in range(n):
+            for j in range(n):
+                D[i][j] = min(D[i][j], D[i][k] + D[k][j])
+    
+    return D
+\end{lstlisting}
+
+\textbf{Complexity}: $O(n^3)$.
+
+\textbf{Space}: $O(n^2)$.
+
+\section{Lecture 19, 20: Flow Networks and Bipartite Matching}
+
+\subsection*{Maximum Flow Problem}
+
+\subsubsection*{Definitions}
+\begin{itemize}
+\item \textbf{Flow network}: Directed graph with capacities $c(u,v) \ge 0$ on edges.
+\item \textbf{Flow}: Function $f(u,v)$ satisfying $0 \le f(u,v) \le c(u,v)$.
+\item \textbf{Flow conservation}: For all $v \ne s, t$, $\sum_u f(u,v) = \sum_w f(v,w)$.
+\item \textbf{Flow value}: $|f| = \sum_v f(s,v)$ (total flow out of source).
+\end{itemize}
+
+\subsection*{Ford-Fulkerson Method}
+
+Repeatedly find augmenting paths and push flow until no more exist.
+
+\begin{lstlisting}
+def ford_fulkerson(G, s, t):
+    flow = 0
+    residual = build_residual_graph(G)
+    
+    while has_path(residual, s, t):  # BFS or DFS
+        path = find_path(residual, s, t)
+        bottleneck = min(residual.capacity(u, v) for (u, v) in path)
+        
+        for (u, v) in path:
+            residual.capacity(u, v) -= bottleneck
+            residual.capacity(v, u) += bottleneck  # Reverse edge
+        
+        flow += bottleneck
+    
+    return flow
+\end{lstlisting}
+
+\subsubsection*{Complexity}
+\begin{itemize}
+\item If capacities are integers, each augmentation increases flow by $\ge 1$, and max flow is $\le \sum_v c(s,v)$, giving $O(E \cdot \text{max flow})$ time.
+\item \textbf{Edmonds-Karp}: Using BFS for shortest augmenting path, complexity is $O(VE^2)$.
+\item \textbf{Dinic's algorithm}: $O(V^2 E)$.
+\item \textbf{Push-relabel}: $O(V^3)$ or $O(V^2 \sqrt{E})$ with optimizations.
+\end{itemize}
+
+\subsection*{Max-Flow Min-Cut Theorem}
+
+\textbf{Theorem}: The maximum flow value equals the minimum cut capacity.
+
+A \textbf{cut} $(S, T)$ partitions vertices with $s \in S, t \in T$. Its capacity is $c(S,T) = \sum_{u \in S, v \in T} c(u,v)$.
+
+\textbf{Proof sketch}: 
+\begin{enumerate}
+\item Any flow value $\le$ any cut capacity (by flow conservation).
+\item At max flow, no augmenting path exists.
+\item Vertices reachable from $s$ in residual graph form a cut $(S, T)$ with capacity = flow value.
+\end{enumerate}
+
+\subsection*{Bipartite Matching via Max Flow}
+
+Given bipartite graph $(L, R, E)$, find maximum matching (set of edges with no shared vertices).
+
+\textbf{Reduction}:
+\begin{enumerate}
+\item Add source $s$ connected to all $L$ vertices with capacity 1.
+\item Set capacity 1 on all edges in $E$ (between $L$ and $R$).
+\item Add sink $t$ connected from all $R$ vertices with capacity 1.
+\item Compute max flow from $s$ to $t$.
+\end{enumerate}
+
+Each unit of flow corresponds to a matched edge. Max flow = maximum matching size.
+
+\section{Lecture 21-23: NP-Completeness and Approximation}
+
+\subsection*{Complexity Classes P and NP}
+
+\subsubsection*{Decision Problems}
+A \textbf{decision problem} answers "yes" or "no" to a given input.
+
+\subsubsection*{Class P}
+$P$ = problems solvable in polynomial time by a deterministic algorithm.
+
+\textbf{Examples}:
+\begin{itemize}
+\item Sorting: Verify that a list is sorted in $O(n)$ time.
+\item Shortest path: Given a graph and vertices $s,t$, is there a path of length $\le k$? Dijkstra solves in $O((n+m) \log n)$ time.
+\end{itemize}
+
+\subsubsection*{Class NP}
+$NP$ = problems for which a proposed solution can be verified in polynomial time.
+
+Formally: $L \in NP$ iff there exist a polynomial $p$ and a deterministic TM $M$ such that:
+- If $x \in L$, then $\exists$ certificate $c$ with $|c| \le p(|x|)$ and $M(x, c) = \text{yes}$.
+- If $x \notin L$, then $\forall$ certificates $c$, $M(x, c) = \text{no}$.
+
+\textbf{Examples}:
+\begin{itemize}
+\item SAT: Given Boolean formula, is it satisfiable? Certificate = an assignment. Verify in $O(n)$ time.
+\item Hamiltonian cycle: Does graph have a Hamiltonian cycle? Certificate = the cycle. Verify in $O(n)$ time.
+\item 3-COLOR: Can a graph be colored with 3 colors? Certificate = a coloring. Verify in $O(n + m)$ time.
+\end{itemize}
+
+\subsubsection*{Open Question: P vs NP}
+\begin{itemize}
+\item Clearly $P \subseteq NP$ (if solvable in polynomial time, the solution is a certificate).
+\item Is $P = NP$? Unknown. Widely believed to be NO.
+\item If $P = NP$, then certificate problems are as easy as verification—arguably the biggest open problem in computer science.
+\end{itemize}
+
+\subsection*{Polynomial-Time Reductions}
+
+\subsubsection*{Definition}
+We write $L_1 \le_p L_2$ ("$L_1$ reduces to $L_2$") if there's a polynomial-time computable function $f$ such that:
+\[
+x \in L_1 \Leftrightarrow f(x) \in L_2
+\]
+
+\subsubsection*{Implications}
+\begin{itemize}
+\item If $L_1 \le_p L_2$ and $L_2 \in P$, then $L_1 \in P$.
+\item If $L_1 \le_p L_2$ and $L_1$ is NP-hard, then $L_2$ is NP-hard.
+\end{itemize}
+
+\subsection*{NP-Completeness}
+
+\subsubsection*{Definition}
+$L$ is NP-complete if:
+\begin{enumerate}
+\item $L \in NP$
+\item Every problem in $NP$ reduces to $L$ (i.e., $L$ is NP-hard).
+\end{enumerate}
+
+\subsubsection*{Importance}
+\begin{itemize}
+\item NP-complete problems are among the hardest in $NP$.
+\item If any NP-complete problem is in $P$, then $P = NP$.
+\item Hundreds of NP-complete problems are known (scheduling, graph coloring, optimization, etc.).
+\end{itemize}
+
+\subsection*{SAT: The First NP-Complete Problem}
+
+\subsubsection*{Definition}
+\textbf{Boolean Satisfiability (SAT)}: Given a Boolean formula $\Phi$ in $n$ variables, is there an assignment making $\Phi$ true?
+
+\textbf{Example}: $\Phi = (x_1 \vee \neg x_2) \wedge (x_2 \vee x_3) \wedge \neg x_1$
+
+Try assignment $x_1 = \text{F}, x_2 = \text{T}, x_3 = \text{T}$:
+\[
+(\text{F} \vee \text{F}) \wedge (\text{T} \vee \text{T}) \wedge \text{T} = \text{F} \wedge \text{T} \wedge \text{T} = \text{F}
+\]
+
+Try $x_1 = \text{F}, x_2 = \text{T}, x_3 = \text{F}$:
+\[
+(\text{F} \vee \text{F}) \wedge (\text{T} \vee \text{F}) \wedge \text{T} = \text{F} \wedge \text{T} \wedge \text{T} = \text{F}
+\]
+
+(Unsatisfiable formula in this case.)
+
+\subsubsection*{Cook-Levin Theorem}
+SAT is NP-complete.
+
+\textbf{Proof idea}: Every NP problem can be solved by a nondeterministic TM in polynomial time. The TM's execution can be encoded as a Boolean formula that is satisfiable iff the NP problem has a "yes" answer.
+
+\subsection*{3-SAT}
+
+\subsubsection*{Definition}
+\textbf{3-SAT}: SAT restricted to formulas in CNF (Conjunctive Normal Form) where each clause has exactly 3 literals.
+
+\textbf{Example}: $(x_1 \vee \neg x_2 \vee x_3) \wedge (x_2 \vee x_3 \vee \neg x_4) \wedge \ldots$
+
+\subsubsection*{Reduction from SAT}
+Any SAT formula can be converted to 3-CNF by introducing new variables:
+\begin{itemize}
+\item Long clauses are broken into 3-literal clauses with new variables.
+\item Single or two-literal clauses are padded (e.g., $(x_1 \vee x_1 \vee x_1)$).
+\end{itemize}
+
+\textbf{Result}: 3-SAT is NP-complete.
+
+\subsection*{Other NP-Complete Problems}
+
+\subsubsection*{Clique and Independent Set}
+\begin{itemize}
+\item \textbf{Clique}: Given graph $G$ and integer $k$, does $G$ have a clique of size $k$?
+\item \textbf{Independent Set}: Does $G$ have an independent set of size $k$ (no edges within)?
+\item These reduce to each other: $C$ is a clique in $G$ iff $C$ is an independent set in $\overline{G}$ (complement graph).
+\end{itemize}
+
+\textbf{Reduction from 3-SAT to Clique}:
+Create vertices for each literal occurrence. Connect two vertices iff they are in different clauses and are consistent (not contradictory). A $k$-clique corresponds to choosing one true literal from each of $k$ clauses, giving a satisfying assignment.
+
+\subsubsection*{Vertex Cover}
+\textbf{Definition}: Given graph $G$ and integer $k$, is there a vertex cover of size $\le k$ (a set of vertices covering all edges)?
+
+\textbf{Relationship}: A set $S$ is a vertex cover iff $V \setminus S$ is an independent set.
+
+Thus Vertex-Cover and Independent-Set are equivalent under reduction.
+
+\subsubsection*{Hamiltonian Cycle and TSP}
+\begin{itemize}
+\item \textbf{Hamiltonian Cycle}: Does graph $G$ have a cycle visiting every vertex exactly once?
+\item \textbf{TSP (decision)}: Given complete graph with edge weights and integer $B$, is there a tour of total length $\le B$?
+\end{itemize}
+
+\textbf{Reduction}: For Hamiltonian cycle on $G$, create a metric TSP instance where edge $(i,j)$ has weight 1 if it exists in $G$, weight 2 otherwise. A Hamiltonian cycle exists iff there's a TSP tour of length exactly $n$.
+
+\subsection*{Approximation Algorithms}
+
+For NP-hard optimization problems, we often settle for good approximate solutions.
+
+\subsubsection*{Approximation Ratio}
+For minimization: Algorithm is $\alpha$-approximate if $\text{SOL} \le \alpha \cdot \text{OPT}$ where $\alpha \ge 1$.
+
+For maximization: $\text{SOL} \ge (1/\alpha) \cdot \text{OPT}$.
+
+\subsubsection*{Vertex Cover 2-Approximation}
+\begin{lstlisting}
+def approx_vertex_cover(G):
+    cover = []
+    edges = G.edges.copy()
+    while edges:
+        u, v = edges.pop()  # Pick any edge
+        cover.extend([u, v])
+        # Remove all edges incident to u or v
+        edges = [(a, b) for a, b in edges if a not in {u, v} and b not in {u, v}]
+    return cover
+\end{lstlisting}
+
+\textbf{Analysis}: Let $M$ be the set of edges picked. The approximation has size $2|M|$. Since $M$ is a matching (no shared vertices), $|M| \le \text{OPT}$. Thus $\text{SOL} = 2|M| \le 2 \cdot \text{OPT}$.
+
+\subsubsection*{Metric TSP 2-Approximation}
+Assume edge weights satisfy the triangle inequality: $w(i,k) \le w(i,j) + w(j,k)$.
+
+\begin{lstlisting}
+def approx_metric_tsp(G):
+    # Compute MST
+    mst = kruskal(G)
+    
+    # Double edges to make Eulerian
+    multigraph = double_edges(mst)
+    
+    # Find Euler tour
+    euler = find_euler_tour(multigraph)
+    
+    # Shortcut to get Hamiltonian cycle
+    tour = []
+    seen = set()
+    for v in euler:
+        if v not in seen:
+            tour.append(v)
+            seen.add(v)
+    tour.append(tour[0])  # Close the cycle
+    
+    return tour
+\end{lstlisting}
+
+\textbf{Analysis}:
+\begin{itemize}
+\item MST weight $\le$ OPT (any TSP tour is a spanning tree).
+\item Doubling: edges have total weight $2 \cdot \text{MST} \le 2 \cdot \text{OPT}$.
+\item Euler tour traverses each edge once, so total distance $\le 2 \cdot \text{OPT}$.
+\item Shortcutting: By triangle inequality, we don't increase the cost.
+\item Final tour: $\le 2 \cdot \text{OPT}$.
+\end{itemize}
+
+\subsection*{Comparison-based sorting lower bound (Original text continues)
+Any comparison sort corresponds to a decision tree whose internal nodes are comparisons and whose
+leaves correspond to total orderings (permutations) of the input.
+
+For $n$ distinct keys there are $n!$ possible permutations, so any correct decision tree must have
+at least $n!$ leaves. A binary tree with $L$ leaves has height at least $\lceil \log_2 L \rceil$, so
+\[
+\text{worst-case comparisons} \ge \log_2(n!) = \Omega(n \log n).
+\]
+
+\subsection*{Average-case lower bound}
+For an input distribution, the expected number of comparisons equals the expected depth of the
+leaf reached by that input. The minimum expected depth over all decision trees is still
+$\Omega(\log(n!))$, so comparison-based sorting has average-case lower bound $\Omega(n \log n)$.
+
+\subsection*{Bucket sort for uniform $[0,1]$ inputs}
+Assume $n$ i.i.d. samples from the uniform distribution on $[0,1]$. Bucket sort:
+\begin{enumerate}
+\item Create $n$ buckets for intervals $[0,1/n), [1/n,2/n), \ldots$.
+\item Insert each $x_i$ into bucket $\lfloor nx_i \rfloor$.
+\item Sort each bucket (e.g., insertion sort) and concatenate.
+\end{enumerate}
+
+Let $B_j$ be bucket $j$. Then $\mathbb{E}[|B_j|]=1$. Using indicator variables,
+\(\mathbb{E}[|B_j|^2] = O(1)\), so
+\[
+\mathbb{E}\left[\sum_j |B_j|^2\right] = O(n).
+\]
+Thus the expected running time is $O(n)$.
+
+\subsection*{Counting sort and range dependence}
+For integer keys in $\{0,\ldots,m-1\}$, counting sort runs in $O(n+m)$ time. If $m=O(n)$ this is
+linear; if $m \gg n$ the $m$ term dominates.
+
+\subsection*{Radix sort perspective}
+Radix sort uses stable counting sort on each digit. It can sort numbers in a large range
+($0$ to $m^d-1$) in $O(d(n+m))$ time by increasing the number of digits while keeping the per-digit
+range small.
+
+\section{Lecture 9}
+
+\subsection*{Binomial heaps: structure}
+A binomial heap is a set of binomial trees that are heap-ordered, with at most one tree of any
+order. If the heap has $n$ elements, it contains at most $\lfloor \log_2 n \rfloor + 1$ trees.
+
+\subsection*{Merge (union)}
+We can merge two binomial heaps in $O(\log n)$ time, where $n$ is the total number of elements.
+The merge is analogous to binary addition on the tree orders.
+
+\subsection*{Insert}
+Insert an element by creating a single-node binomial heap and merging it with the existing heap.
+This takes $O(\log n)$ in the worst case.
+
+\subsection*{Decrease-key}
+To decrease a key, reduce its value and then bubble the node up the tree while the heap order is
+violated (swap with its parent until the order is restored).
+
+\subsection*{Find-min}
+If we maintain an explicit pointer to the minimum root, then \textsc{Min} takes $O(1)$ time. If not,
+we must scan all roots, which costs $O(\log n)$. The min pointer must be updated when it changes.
+
+\subsection*{Delete and extract-min}
+To delete an arbitrary node, first decrease its key to $-\infty$, bubble it up to a root, delete
+that root, and then merge the heap formed by its children with the remaining heap.
+
+\textsc{Extract-Min} is just deletion of the minimum root followed by merging its children with the
+rest, and then recomputing the minimum root.
+
+\section{Lecture 10}
+
+\subsection*{Priority queues and heaps}
+A min-priority queue supports:
+\begin{itemize}
+\item \textsc{Min}: $O(1)$ with a min pointer.
+\item \textsc{Insert}, \textsc{Delete}, \textsc{Extract-Min}: typically $O(\log n)$.
+\end{itemize}
+Binary heaps support building a heap in $O(n)$ time, while building a balanced BST on $n$ keys
+costs $\Theta(n \log n)$.
+
+\subsection*{Binomial trees}
+Define a family of binomial trees:
+\begin{itemize}
+\item $B_0$ is a single node.
+\item $B_{i+1}$ is obtained by linking two $B_i$ trees (make one root a child of the other).
+\end{itemize}
+Key properties of $B_i$:
+\begin{itemize}
+\item Number of nodes: $2^i$.
+\item Height: $i$.
+\item Root degree: $i$.
+\item Nodes on level $j$: $\binom{i}{j}$.
+\end{itemize}
+
+\subsection*{Binomial heap representation}
+For a heap of size $n$, represent $n$ in binary. Each 1-bit corresponds to a binomial tree of the
+matching order; there is at most one tree of each order. Roots are stored in a list ordered by
+increasing order (often a circular list).
+
+\subsection*{Merging two binomial heaps}
+When merging two binomial heaps, we combine root lists (by order) and link any two trees with the
+same order. This is identical to adding two binary numbers and handling carries, so the merge takes
+$O(\log n)$ time.
+
+\section{Lecture 11}
+
+\subsection*{Amortized analysis for binomial heap insert}
+Consider an $n$-bit counter. The cost of incrementing is the number of bit flips. The worst case
+is $n$, but the total number of flips over $2^n$ increments is:
+\[
+\sum_{j=0}^{n-1} \frac{2^n}{2^j} \le 2^{n+1}.
+\]
+Thus the amortized cost per increment is $O(1)$.
+
+In a binomial heap, inserting an element corresponds to incrementing the binary representation of
+the heap size. Each carry corresponds to linking two trees of the same order. Therefore, over $n$
+insertions, the total number of links is $O(n)$, giving $O(1)$ amortized time per insert.
+
+\section{Lecture 12}
+
+\subsection*{Potential method for amortized analysis}
+Let the data structure states be $D_0, D_1, \ldots, D_n$. A potential function
+$\Phi: D_i \to \mathbb{R}$ assigns a potential to each state. The amortized cost of operation $i$ is
+\[
+\hat{c}_i = c_i + (\Phi_i - \Phi_{i-1}).
+\]
+Summing gives
+\[
+\sum_{i=1}^n \hat{c}_i = \sum_{i=1}^n c_i + \Phi_n - \Phi_0,
+\]
+so the total actual cost is bounded by total amortized cost plus boundary terms.
+
+\subsection*{Example: bit counter}
+Let $\Phi$ be the number of 1-bits. If an increment flips $t$ trailing 1s to 0 and one 0 to 1,
+then $c_i = t+1$ and $\Delta \Phi = 1 - t$, so
+\[
+\hat{c}_i = (t+1) + (1 - t) = 2.
+\]
+Hence $2^n$ increments cost at most $2(2^n-1)$ in total, i.e., $O(1)$ amortized.
+
+\subsection*{Disjoint sets (union-find) with union by size}
+We maintain a partition of a set $S$ into disjoint subsets. Operations:
+\begin{itemize}
+\item \textsc{Find}$(x)$: return the representative of the set containing $x$.
+\item \textsc{Union}$(S_i, S_j)$: merge two sets.
+\end{itemize}
+
+If we represent each set as a star (all elements point to the root), \textsc{Find} is $O(1)$.
+To union, relabel all elements in the smaller set to point to the larger root, costing
+$\min\{|S_i|, |S_j|\}$.
+
+Each element changes its parent only when its set is the smaller one. Every time it changes, the
+size of its set at least doubles, so each element changes at most $\lfloor \log_2 n \rfloor$ times.
+For $n-1$ unions and $m$ finds, the total time is
+\[
+O(m + n \log n).
+\]
+
+\section{Lecture 13}
+
+\subsection*{Minimum spanning tree (MST)}
+Given an undirected weighted graph $G=(V,E,w)$, a spanning tree connects all vertices with
+minimum total weight. The number of spanning trees can be large; for the complete graph $K_n$ it is
+$n^{n-2}$ (Cayley's formula).
+
+DFS yields a spanning tree, but it is not necessarily minimum. We need a greedy criterion that is
+provably correct.
+
+\subsection*{Kruskal's algorithm (greedy)}
+Sort edges by nondecreasing weight and scan in that order. Add an edge if it does not create a
+cycle. Use union-find to test whether endpoints are in the same component.
+
+Time complexity:
+\begin{itemize}
+\item Sorting: $O(m \log m)$.
+\item Union/find operations: nearly linear (or $O(m + n \log n)$ with union by size).
+\end{itemize}
+
+\subsection*{Other MST algorithms}
+\begin{itemize}
+\item \textbf{Prim's algorithm}: grows one tree by repeatedly adding the minimum-weight edge
+crossing the cut from the tree to the remaining vertices.
+\item \textbf{Boruvka's algorithm}: repeatedly add the cheapest outgoing edge from each component.
+\end{itemize}
+
+\section{Lecture 14}
+
+\subsection*{0--1 knapsack}
+Given capacity $B$ and items with weights $w_i$ and profits $p_i$, solve:
+\[
+\max \sum_i p_i x_i \quad \text{s.t.} \quad \sum_i w_i x_i \le B, \; x_i \in \{0,1\}.
+\]
+Greedy by ratio $p_i/w_i$ can fail; the notes include a counterexample where the greedy profit is
+smaller than the optimal profit.
+
+\subsection*{Branch-and-bound intuition}
+The decision tree over $x_1, x_2, \ldots$ can be pruned using an upper bound, e.g., the fractional
+knapsack value. This avoids exploring all $2^n$ leaves.
+
+\subsection*{Maximum weight matching (bipartite graphs)}
+A \emph{matching} is a set of edges with no shared vertices. The goal is to maximize the total
+weight of selected edges. A perfect matching covers every vertex. The constraint is:
+\[
+\text{No two chosen edges share a vertex.}
+\]
+
+\section{Lecture 15}
+
+\subsection*{Matroid definition}
+A matroid is a pair $M=(S,\mathcal{I})$ where $S$ is the ground set and $\mathcal{I}$ is a family
+of feasible subsets satisfying:
+\begin{itemize}
+\item Heredity: if $A \in \mathcal{I}$ and $B \subseteq A$, then $B \in \mathcal{I}$.
+\item Exchange property: if $|A|<|B|$ with $A,B \in \mathcal{I}$, then $\exists e \in B\setminus A$
+such that $A \cup \{e\} \in \mathcal{I}$.
+\end{itemize}
+The exchange property implies the \emph{rank property}: all maximal feasible subsets of any
+$A \subseteq S$ have the same size.
+
+\subsection*{Greedy optimality}
+For matroids, the greedy algorithm that repeatedly adds the maximum-weight element that keeps the
+set feasible produces an optimal maximum-weight feasible subset.
+
+\subsection*{Minimization via maximization}
+To solve a minimization problem on a matroid, define
+\(w'(e) = w_{\max} - w(e) \ge 0\). Maximizing total $w'$ is equivalent to minimizing the original
+total weight.
+
+\subsection*{Application: maximum spanning forest}
+Let $S$ be the set of edges and $\mathcal{I}$ be all forests. This forms a matroid. The greedy
+algorithm yields a maximum spanning forest (a spanning tree if the graph is connected).
+
+\subsection*{Job scheduling (unit-time, deadlines, penalties)}
+Each job takes one unit time, has a deadline, and incurs a penalty if missed. Equivalently, we
+maximize the total penalty of the scheduled (on-time) jobs. A greedy strategy sorts jobs by
+decreasing penalty and keeps a feasible subset (one that can be scheduled by deadlines).
+
+\section{Lecture 16}
+
+\subsection*{Job scheduling and exchange property}
+For the job scheduling problem, the feasible sets (jobs that can meet all deadlines) form a
+matroid. An exchange argument shows that if $|A|<|B|$ are feasible, then a job from $B\setminus A$
+can be inserted into $A$ while maintaining feasibility.
+
+\subsection*{Knapsack approximation idea}
+Sort items by decreasing ratio $p_i/w_i$ and fill greedily to capacity $B$ as in fractional
+knapsack. Let items $1..\ell$ fit fully and take a fraction of item $\ell+1$ in the fractional
+solution. Then
+\[
+\max\left\{\sum_{i=1}^{\ell} p_i,\; p_{\ell+1}\right\} \ge \tfrac{1}{2} \cdot (\text{fractional optimum}).
+\]
+Since the fractional optimum upper-bounds the 0--1 optimum, this yields a $1/2$-approximation.
+
+\subsection*{Dynamic programming for 0--1 knapsack}
+Let $K(i,j)$ be the optimal profit using items $1..i$ with capacity $j$.
+\[
+K(i,j) =
+\begin{cases}
+K(i-1,j), & w_i > j, \\
+\max\{K(i-1,j),\; p_i + K(i-1, j-w_i)\}, & w_i \le j.
+\end{cases}
+\]
+The answer is $K(n,B)$. This runs in $O(nB)$ time and $O(nB)$ space (or $O(B)$ with row reuse).
+
+\section{Lecture 17}
+
+\subsection*{Single-source shortest paths: problem setup}
+Given a weighted directed graph $G=(V,E,w)$ and a source $s$, find $d(v)$, the shortest path
+distance from $s$ to every vertex. Paths must respect edge directions; negative edge weights are
+allowed unless stated otherwise.
+
+\subsection*{Relaxation and optimal substructure}
+For an edge $(u,v)$, the relaxation step is
+\[
+d(v) \leftarrow \min\{d(v),\; d(u) + w(u,v)\}.
+\]
+If shortest paths have been correctly computed for all vertices in a prefix of a topological
+order (DAG case), a single pass of relaxations produces correct distances for the next vertex.
+
+\subsection*{Shortest paths in DAGs}
+If $G$ is acyclic, compute a topological ordering and relax edges in that order. Because every
+edge goes forward in the order, each vertex's distance is finalized when it is processed. The
+algorithm runs in $O(|V|+|E|)$ time.
+
+\subsection*{Bellman--Ford algorithm}
+Bellman--Ford performs $|V|-1$ full passes of edge relaxations. It correctly handles negative
+weights and detects negative cycles:
+\begin{enumerate}
+\item Initialize $d(s)=0$, $d(v)=\infty$ for $v \ne s$.
+\item Repeat $|V|-1$ times: relax all edges.
+\item If any edge can still be relaxed, a negative cycle is reachable from $s$.
+\end{enumerate}
+The running time is $O(|V||E|)$.
+
+\subsection*{Dijkstra's algorithm}
+For nonnegative edge weights, Dijkstra's algorithm repeatedly extracts the unsettled vertex with
+minimum tentative distance and relaxes its outgoing edges. With a binary heap it runs in
+$O((|V|+|E|)\log |V|)$ time. The correctness depends on nonnegative weights; otherwise a vertex
+could be finalized too early.
+
+\section{Lecture 18}
+
+\subsection*{All-pairs shortest paths (APSP)}
+The APSP problem asks for shortest path distances between every ordered pair of vertices. It can
+be solved by running a single-source algorithm from every vertex, but there are faster dynamic
+programming approaches for dense graphs.
+
+\subsection*{Floyd--Warshall DP}
+Let $D^k_{ij}$ be the shortest path from $i$ to $j$ using only intermediate vertices from
+$\{1,2,\ldots,k\}$. The recurrence is
+\[
+D^k_{ij} = \min\{D^{k-1}_{ij},\; D^{k-1}_{ik} + D^{k-1}_{kj}\}.
+\]
+Initialize $D^0_{ij}=w(i,j)$ (or $\infty$ if no edge). This yields an $O(|V|^3)$ algorithm and can
+detect negative cycles when $D^n_{ii} < 0$ for some $i$.
+
+\subsection*{Path reconstruction}
+Maintain a predecessor matrix $\pi$ (or next-hop matrix) that records which intermediate vertex
+improved a distance. After the DP, reconstruct paths by following $\pi$ pointers.
+
+\subsection*{Johnson's algorithm}
+For sparse graphs with possible negative edges (but no negative cycles), reweight edges using a
+potential function $h(v)$ found by adding a new source and running Bellman--Ford:
+\[
+w'(u,v) = w(u,v) + h(u) - h(v) \ge 0.
+\]
+Then run Dijkstra from every vertex on $w'$, and convert back to original distances. The total
+time is $O(|V||E|\log |V|)$.
+
+\section{Lecture 19}
+
+\subsection*{Flow networks}
+A flow network is a directed graph with a source $s$, sink $t$, and capacity function
+$c:E\to\mathbb{R}_{\ge 0}$. A flow $f$ satisfies:
+\begin{itemize}
+\item Capacity: $0 \le f(u,v) \le c(u,v)$.
+\item Conservation: for $v \ne s,t$, $\sum_u f(u,v) = \sum_w f(v,w)$.
+\end{itemize}
+The value of the flow is $|f| = \sum_v f(s,v) - \sum_v f(v,s)$.
+
+\subsection*{Residual graph and augmenting paths}
+The residual capacity of edge $(u,v)$ is $c_f(u,v)=c(u,v)-f(u,v)$. The residual graph $G_f$ has
+edges with positive residual capacity, including reverse edges that allow canceling flow. Any
+path from $s$ to $t$ in $G_f$ is an augmenting path, and augmenting by the minimum residual
+capacity increases the flow value.
+
+\subsection*{Ford--Fulkerson method}
+Repeatedly find an augmenting path and push flow along it until no augmenting path exists. If
+capacities are integers, the algorithm terminates with an integral maximum flow. The running time
+depends on how augmenting paths are chosen.
+
+\subsection*{Edmonds--Karp (BFS paths)}
+Choosing the shortest (fewest-edge) augmenting path via BFS yields Edmonds--Karp, which runs in
+$O(|V||E|^2)$ time. The key invariant is that the shortest-path distance in the residual graph
+never decreases.
+
+\subsection*{Max-flow min-cut theorem}
+A cut $(S,T)$ with $s \in S, t \in T$ has capacity $c(S,T)=\sum_{u\in S, v\in T} c(u,v)$. For any
+flow $f$, $|f| \le c(S,T)$. The theorem states that the maximum flow value equals the minimum cut
+capacity, and a flow is maximum iff no augmenting path exists.
+
+\section{Lecture 20}
+
+\subsection*{Bipartite matching via flow}
+Given a bipartite graph $(L,R,E)$, create a source connected to all $L$ vertices with capacity 1,
+connect $L$ to $R$ edges with capacity 1, and connect $R$ to the sink with capacity 1. Any
+integral max flow corresponds to a maximum matching.
+
+\subsection*{Vertex-disjoint and edge-disjoint paths}
+Edge-disjoint $s$--$t$ paths can be modeled by setting unit capacities on edges and computing a
+max flow. For vertex-disjoint paths, split each vertex $v$ (except $s,t$) into $v_{in}$ and
+$v_{out}$ connected by an edge of capacity 1, and redirect incoming/outgoing edges accordingly.
+
+\subsection*{Circulation with demands}
+Each edge has lower and upper bounds, $\ell(u,v) \le f(u,v) \le c(u,v)$. Transform by sending the
+lower bounds first and adjusting node demands. Add a super source and super sink to satisfy the
+net demands and test if a feasible circulation exists using a max flow computation.
+
+\subsection*{Min-cut as a certificate}
+After computing a max flow, the set of vertices reachable from $s$ in the residual graph forms a
+minimum cut. This provides an explicit certificate for optimality.
+
+\section{Lecture 21}
+
+\subsection*{Complexity classes $P$ and $NP$}
+$P$ is the class of decision problems solvable in polynomial time. $NP$ consists of problems for
+which a proposed solution can be verified in polynomial time. Equivalently, a problem is in $NP$
+if it is solvable in polynomial time by a nondeterministic TM.
+
+\subsection*{Polynomial-time reductions}
+We say $A \le_p B$ if there is a polynomial-time computable function $f$ such that
+$x \in A \Leftrightarrow f(x) \in B$. If $A$ is hard and $A \le_p B$, then $B$ is at least as hard
+as $A$. Reductions preserve membership in $NP$.
+
+\subsection*{NP-completeness}
+A problem is NP-complete if it is in $NP$ and every problem in $NP$ reduces to it. To show a
+problem $X$ is NP-complete, prove $X \in NP$ and give a reduction from a known NP-complete
+problem (e.g., SAT or 3-SAT) to $X$.
+
+\subsection*{SAT and 3-SAT}
+The SAT problem asks if a Boolean formula has a satisfying assignment. 3-SAT restricts clauses to
+three literals. SAT is NP-complete (Cook--Levin), and 3-SAT remains NP-complete via a polynomial
+transformation that breaks long clauses into 3-literal clauses.
+
+\section{Lecture 22}
+
+\subsection*{Clique, independent set, vertex cover}
+For a graph $G=(V,E)$:
+\begin{itemize}
+\item A clique is a set of vertices with all edges present.
+\item An independent set has no edges inside it.
+\item A vertex cover touches every edge.
+\end{itemize}
+These are tightly related: a set $C$ is a vertex cover iff $V\setminus C$ is an independent set.
+Thus $	extsc{Vertex-Cover}$ and $	extsc{Independent-Set}$ reduce to each other.
+
+\subsection*{3-SAT to clique reduction}
+Construct a graph with a vertex for each literal occurrence in each clause. Connect two vertices
+iff they are from different clauses and are not contradictory. A size-$m$ clique corresponds to
+choosing one consistent literal from each of the $m$ clauses, giving a satisfying assignment.
+
+\subsection*{Hamiltonian cycle and TSP (decision)}
+Hamiltonian cycle asks if a graph contains a cycle visiting every vertex once. The decision
+version of TSP asks if there is a tour of length at most $B$. Hamiltonian cycle reduces to TSP by
+assigning edge weights 1 for existing edges and 2 otherwise.
+
+\subsection*{Subset sum and partition}
+Subset Sum asks if a subset of numbers sums to exactly $B$. Partition is the special case where
+$B$ is half the total sum. Both are NP-complete and can be used to show NP-completeness for
+knapsack decision versions.
+
+\section{Lecture 23}
+
+\subsection*{Approximation algorithms}
+For a minimization problem, an algorithm is an $\alpha$-approximation if it always returns a
+solution of cost at most $\alpha$ times optimal (with $\alpha \ge 1$). For maximization, the
+returned value is at least $1/\alpha$ times optimal.
+
+\subsection*{Vertex cover 2-approximation}
+Repeatedly pick any edge $(u,v)$, add both endpoints to the cover, and remove all incident edges.
+The resulting cover has size at most $2 \cdot \text{OPT}$ because each chosen edge is disjoint and
+must be covered by at least one vertex in any optimum.
+
+\subsection*{Metric TSP 2-approximation}
+If edge weights satisfy the triangle inequality, compute an MST, double its edges to obtain an
+Eulerian multigraph, traverse an Euler tour, and shortcut repeated vertices. The tour length is
+at most $2 \cdot \text{OPT}$.
+
+\subsection*{Set cover greedy bound}
+Greedy repeatedly selects the set that covers the largest number of uncovered elements. The
+approximation ratio is $H_n = 1 + 1/2 + \cdots + 1/n = O(\log n)$, which is asymptotically tight
+unless $P=NP$.
+
+\subsection*{Knapsack FPTAS idea}
+Scale profits so that the maximum profit is polynomially bounded, then run dynamic programming on
+the scaled profits. This yields a $(1-\varepsilon)$-approximation in time polynomial in $n$ and
+$1/\varepsilon$.
+
+\section{Lecture 24}
+
+\subsection*{Randomized algorithms: basic notions}
+Randomized algorithms use random bits to influence execution. A Las Vegas algorithm always
+returns a correct answer but has random running time; a Monte Carlo algorithm runs within a
+fixed time bound but may err with small probability.
+
+\subsection*{Randomized quicksort}
+Choosing the pivot uniformly at random yields expected $O(n \log n)$ comparisons. The expected
+number of comparisons is
+\[
+\mathbb{E}[C_n] = 2(n+1)H_n - 4n = O(n \log n),
+\]
+and the probability of the worst-case $O(n^2)$ behavior is very small.
+
+\subsection*{Universal hashing}
+A family $\mathcal{H}$ of hash functions from $U$ to $\{0,\ldots,m-1\}$ is universal if
+\(
+\Pr_{h\in\mathcal{H}}[h(x)=h(y)] \le 1/m
+\) for all $x\ne y$. Using a random $h\in\mathcal{H}$ ensures expected $O(1)$ time for hash table
+operations, independent of the input distribution.
+
+\subsection*{Bloom filters (probabilistic membership)}
+Bloom filters maintain a bit array and $k$ hash functions. Insert sets $k$ bits; membership
+queries can have false positives but no false negatives. The false positive rate is
+approximately $(1-e^{-kn/m})^k$ for $n$ inserted elements.
+
+\section{Lecture 25}
+
+\subsection*{Randomized min-cut (Karger)}
+Repeatedly pick a random edge and contract its endpoints until only two super-nodes remain. The
+remaining cut is a candidate minimum cut. A single run succeeds with probability at least
+$2/(n(n-1))$, so repeating $O(n^2 \log n)$ times yields high success probability.
+
+\subsection*{Amplification and boosting success}
+If an algorithm succeeds with probability $p$, repeating it independently $r$ times gives failure
+probability at most $(1-p)^r$. For Karger's algorithm, $r=O(n^2 \log n)$ makes the failure
+probability at most $1/n^c$ for any desired constant $c$.
+
+\subsection*{Polynomial identity testing (Schwartz--Zippel)}
+To test if a multivariate polynomial $P$ is identically zero, pick a random point from a large
+set and evaluate. If $P$ has total degree $d$, then
+\[
+\Pr[P(x)=0] \le d/|S|,
+\]
+so evaluating at random points gives a Monte Carlo test with controllable error.
+
+\subsection*{Randomized primality testing}
+Miller--Rabin is a Monte Carlo test that never declares a composite as ``prime'' when certain
+witnesses are found, and otherwise declares ``probably prime'' with error probability at most
+$4^{-k}$ after $k$ random bases.
+
+\end{document}
